@@ -1,0 +1,28 @@
+Package: CDMr
+Type: Package
+Title: Community Distribution Modelling in R
+Version: 0.0.0.9000
+Authors@R: c(
+    person(given = "Alex", family = "Ryabov", role = c("aut", "cre"),
+           email = "alexey.ryabov@uol.de")
+    )
+Description: Tools for Community Distribution Modelling. Community
+    composition data are embedded in a low-dimensional space with diffusion
+    maps, samples are clustered into community types, community types are
+    characterized by their taxonomic composition, and blocked, stratified
+    cross-validation folds are prepared for predictive models.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Imports:
+    grDevices,
+    stats,
+    utils
+Suggests:
+    ggplot2,
+    mclust,
+    patchwork,
+    testthat (>= 3.0.0),
+    viridisLite
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.1.0

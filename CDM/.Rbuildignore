@@ -1,0 +1,10 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.Rlib$
+^LICENSE\.md$
+^dev$
+^articles$
+^pkgdown$
+^_pkgdown\.yml$
+^[^/]+\.pdf$
+^tests/testthat/Rplots\.pdf$
