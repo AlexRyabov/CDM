@@ -30,6 +30,11 @@ test_that("setup_project() applies project settings and adds file paths", {
   expect_identical(settings$files$community_data, file.path(results_dir, "cdm_data.rds"))
   expect_identical(settings$files$embedding, file.path(results_dir, "embedding.rds"))
   expect_identical(settings$files$clustering, file.path(results_dir, "clustering.rds"))
+  expect_identical(settings$files$cv_folds, file.path(results_dir, "cv_folds.rds"))
+  expect_identical(settings$files$svm_evaluation, file.path(results_dir, "evaluation_svm.rds"))
+  expect_identical(settings$files$rf_evaluation, file.path(results_dir, "evaluation_rf.rds"))
+  expect_identical(settings$files$model, file.path(results_dir, "model.rds"))
+  expect_identical(settings$files$partial_dependence, file.path(results_dir, "partial_dependence.rds"))
   expect_identical(settings$sample_filter, quote(Depth < 105))
   expect_identical(
     settings$embedding,

@@ -20,8 +20,10 @@ settings that replace the corresponding values in \code{default_settings}.}
 \value{
 A list with the complete settings: \code{project_name}, all fields of
 \code{default_settings} with project values applied, full input file paths in
-\code{files}, and the result files \code{files$community_data}, \code{files$embedding},
-and \code{files$clustering} in \code{paths$results}.
+\code{files}, and the result files in \code{paths$results}: \code{files$community_data},
+\code{files$embedding}, \code{files$clustering}, \code{files$cv_folds},
+\code{files$svm_evaluation}, \code{files$rf_evaluation}, \code{files$model}, and
+\code{files$partial_dependence}.
 }
 \description{
 Combines the base settings with the settings of the selected project, adds

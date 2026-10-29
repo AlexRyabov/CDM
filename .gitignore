@@ -1,0 +1,11 @@
+# Default graphics device output of non-interactive R sessions
+Rplots.pdf
+
+# R CMD check output
+*.Rcheck/
+
+# Local agent instructions, not part of the repository
+AGENTS.md
+
+# Generated analysis results; recreated by the analysis scripts
+analysis/results/

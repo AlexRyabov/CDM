@@ -12,6 +12,21 @@ packages <- c(
   "patchwork",
   "mclust",
   "viridisLite",
+  # CDMr community-type models
+  "withr",
+  "future",
+  "future.apply",
+  "parallelly",
+  "tibble",
+  "rsample",
+  "recipes",
+  "parsnip",
+  "dials",
+  "yardstick",
+  "important",
+  "themis",
+  "e1071",
+  "ranger",
   # Package development
   "testthat",
   "roxygen2"

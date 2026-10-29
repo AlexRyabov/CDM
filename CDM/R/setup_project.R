@@ -17,8 +17,10 @@
 #'
 #' @return A list with the complete settings: `project_name`, all fields of
 #'   `default_settings` with project values applied, full input file paths in
-#'   `files`, and the result files `files$community_data`, `files$embedding`,
-#'   and `files$clustering` in `paths$results`.
+#'   `files`, and the result files in `paths$results`: `files$community_data`,
+#'   `files$embedding`, `files$clustering`, `files$cv_folds`,
+#'   `files$svm_evaluation`, `files$rf_evaluation`, `files$model`, and
+#'   `files$partial_dependence`.
 #'
 #' @examples
 #' default_settings <- list(
@@ -110,7 +112,12 @@ setup_project <- function(project_name, default_settings, projects) {
   result_files <- list(
     community_data = file.path(settings$paths$results, "cdm_data.rds"),
     embedding = file.path(settings$paths$results, "embedding.rds"),
-    clustering = file.path(settings$paths$results, "clustering.rds")
+    clustering = file.path(settings$paths$results, "clustering.rds"),
+    cv_folds = file.path(settings$paths$results, "cv_folds.rds"),
+    svm_evaluation = file.path(settings$paths$results, "evaluation_svm.rds"),
+    rf_evaluation = file.path(settings$paths$results, "evaluation_rf.rds"),
+    model = file.path(settings$paths$results, "model.rds"),
+    partial_dependence = file.path(settings$paths$results, "partial_dependence.rds")
   )
   reserved_names <- intersect(names(settings$files), names(result_files))
   if (length(reserved_names) > 0L) {

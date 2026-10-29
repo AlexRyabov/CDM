@@ -8,19 +8,37 @@ Authors@R: c(
     )
 Description: Tools for Community Distribution Modelling. Community
     composition data are embedded in a low-dimensional space with diffusion
-    maps, samples are clustered into community types, community types are
-    characterized by their taxonomic composition, and blocked, stratified
-    cross-validation folds are prepared for predictive models.
+    maps, samples are clustered into community types, and community types are
+    characterized by their taxonomic composition. Support vector machines and
+    random forests predict community-type probabilities from environmental
+    conditions; predictor selection, tuning, and class balancing are
+    evaluated with nested, blocked, stratified cross-validation.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Imports:
+    dials,
+    e1071,
+    future.apply,
     grDevices,
+    important,
+    parsnip,
+    ranger,
+    recipes,
+    rsample,
+    rlang,
     stats,
-    utils
+    themis,
+    tibble,
+    utils,
+    withr,
+    yardstick
 Suggests:
+    future,
     ggplot2,
     mclust,
+    parallelly,
     patchwork,
+    pkgload,
     testthat (>= 3.0.0),
     viridisLite
 Config/testthat/edition: 3
