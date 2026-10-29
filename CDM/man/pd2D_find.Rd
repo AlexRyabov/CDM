@@ -9,8 +9,8 @@ pd2D_find(model, data, pred1, pred2)
 \arguments{
 \item{model}{A \code{cdm_model} object created by \code{\link[=fit_model]{fit_model()}}.}
 
-\item{data}{A data frame with the samples to average over; it must contain
-all predictors of the model (\code{model$predictors}).}
+\item{data}{A data frame or tibble with the samples to average over; it
+must contain all predictors of the model (\code{model$predictors}).}
 
 \item{pred1, pred2}{Named lists with one element each: the name is a numeric
 predictor of the model, the element the grid of its values, for example
@@ -22,7 +22,8 @@ An object of class \code{cdm_pd2d}, a list with the predictor names
 \code{pred1} and \code{pred2}, the grids \code{x} (values of \code{pred1}) and \code{y} (values of
 \code{pred2}), the \code{classes}, the array \code{probabilities} with dimensions
 \verb{length(x) x length(y) x length(classes)}, the number of averaged samples
-\code{n_data}, their IDs \code{data_ids} (row names of \code{data}), and the provenance
+\code{n_data}, their IDs \code{data_ids} (row names of \code{data}; row numbers for a
+tibble or a data frame without row names), and the provenance
 of the model (\code{model_provenance}).
 }
 \description{

@@ -89,10 +89,11 @@ fit_model <- function(cdm_data, cv, options) {
 #' type. Rows are identified by sample ID.
 #'
 #' @param object A `cdm_model` object created by [fit_model()].
-#' @param newdata A `cdm_data` object, or a data frame with the selected
-#'   predictors (see `object$predictors`).
+#' @param newdata A `cdm_data` object, or a data frame or tibble with the
+#'   selected predictors (see `object$predictors`).
 #' @param sample_id For a data frame, the name of its column with sample IDs.
-#'   `NULL` uses the row names.
+#'   `NULL` uses the row names, which must be sample IDs; a tibble has no row
+#'   names and needs `sample_id`.
 #' @param ... Not used.
 #'
 #' @return A data frame with `sample_id`, `.pred_class`, and one
@@ -107,7 +108,16 @@ predict.cdm_model <- function(object, newdata, sample_id = NULL, ...) {
     sample_ids <- newdata$sample_names
     newdata <- newdata$env
   } else if (is.data.frame(newdata)) {
+    # A tibble has no row names; its sample IDs must be a column.
+    newdata <- as.data.frame(newdata)
     if (is.null(sample_id)) {
+      if (.row_names_info(newdata) < 0L) {
+        stop(
+          "newdata has no sample IDs: give the column with the sample IDs in sample_id, ",
+          "or use sample IDs as row names.",
+          call. = FALSE
+        )
+      }
       sample_ids <- rownames(newdata)
     } else {
       if (!is.character(sample_id) || length(sample_id) != 1L || !sample_id %in% names(newdata)) {

@@ -1,5 +1,14 @@
 # CDMr 0.0.0.9000
 
+* Functions that take data frames also accept tibbles: `prepare_data()`,
+  `make_cv_folds()`, `predict()` for `cdm_model`, `pd2D_find()`, and
+  `pd2D_plot()`. Tibbles are converted to plain data frames; all parts of a
+  `cdm_data` object are plain data frames.
+* `make_cv_folds()` gains `sample_id`, the column with the sample IDs, for
+  data without sample IDs as row names, such as tibbles. `make_cv_folds()`
+  and `predict()` now stop with an error for data without sample IDs instead
+  of using row numbers as IDs.
+
 * Two-dimensional partial dependence: `pd2D_find()` (probabilities of all
   community types on a grid of two predictors, averaged over the samples of
   `data`, in parallel with future), `pd2D_mostprobable()`, and `pd2D_plot()`

@@ -9,11 +9,12 @@
 \arguments{
 \item{object}{A \code{cdm_model} object created by \code{\link[=fit_model]{fit_model()}}.}
 
-\item{newdata}{A \code{cdm_data} object, or a data frame with the selected
-predictors (see \code{object$predictors}).}
+\item{newdata}{A \code{cdm_data} object, or a data frame or tibble with the
+selected predictors (see \code{object$predictors}).}
 
 \item{sample_id}{For a data frame, the name of its column with sample IDs.
-\code{NULL} uses the row names.}
+\code{NULL} uses the row names, which must be sample IDs; a tibble has no row
+names and needs \code{sample_id}.}
 
 \item{...}{Not used.}
 }

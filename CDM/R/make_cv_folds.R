@@ -29,9 +29,10 @@
 #' `balance = "groups"` every fold gets the same number of groups (up to one).
 #' Use [set.seed()] before the call to make the folds reproducible.
 #'
-#' @param data A data frame with one row per sample, usually `cdm_data$env`.
-#'   Its row names must be the sample IDs, as in `cdm_data$env`, so that the
-#'   folds can be matched with the community data.
+#' @param data A data frame or tibble with one row per sample, usually
+#'   `cdm_data$env`. The sample IDs are needed to match the folds with the
+#'   community data: they are the row names, as in `cdm_data$env`, or the
+#'   column `sample_id`. A tibble has no row names and needs `sample_id`.
 #' @param group Column with the groups (blocks) whose rows are kept together,
 #'   given as a name or a string. `NULL` treats every row as its own group.
 #' @param v Number of folds, or `"leave_block_out"` to make every group (or
@@ -42,6 +43,8 @@
 #'   or `"groups"` to balance the number of groups.
 #' @param strata Column used to balance the folds, given as a name or a
 #'   string, or `NULL`.
+#' @param sample_id Column with the sample IDs, given as a name or a string.
+#'   `NULL` uses the row names of `data`.
 #'
 #' @return An `rset` with columns `splits` and `id` (and `id2` for repeats).
 #'   For grouped or leave-out folds the class is `cdm_group_vfold_cv`; the
@@ -67,10 +70,28 @@ make_cv_folds <- function(data,
                           v = 5L,
                           repeats = 1L,
                           balance = c("observations", "groups"),
-                          strata = NULL) {
+                          strata = NULL,
+                          sample_id = NULL) {
   balance <- match.arg(balance)
   if (!is.data.frame(data) || nrow(data) < 2L) {
     stop("data must be a data frame with at least two rows.", call. = FALSE)
+  }
+  # The folds identify samples by the row names of their data, which a
+  # tibble does not have.
+  data <- as.data.frame(data)
+  sample_id <- resolve_column_argument(rlang::enquo(sample_id), data, "sample_id")
+  if (!is.null(sample_id)) {
+    ids <- as.character(data[[sample_id]])
+    if (anyDuplicated(ids)) {
+      stop("The sample_id column '", sample_id, "' must contain unique sample IDs.", call. = FALSE)
+    }
+    rownames(data) <- ids
+  } else if (.row_names_info(data) < 0L) {
+    stop(
+      "data has no sample IDs: use a data frame with sample IDs as row names, such as ",
+      "cdm_data$env, or give the column with the sample IDs in sample_id.",
+      call. = FALSE
+    )
   }
   ids <- rownames(data)
   if (anyNA(ids) || any(!nzchar(ids)) || anyDuplicated(ids)) {

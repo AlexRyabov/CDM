@@ -3,6 +3,9 @@
 #' Combines species metadata, abundance data, environmental data, and relative
 #' abundance into a single `cdm_data` object.
 #'
+#' Data frames can also be tibbles; all parts of the result are stored as
+#' plain data frames.
+#'
 #' @param species_names Data frame with species or taxonomic metadata. Rows must
 #'   match rows of `abundance`.
 #' @param abundance Numeric matrix or data frame with species/taxa in rows and
@@ -34,6 +37,8 @@ prepare_data <- function(species_names,
   if (!is.data.frame(species_names)) {
     stop("species_names must be a data frame.", call. = FALSE)
   }
+  # Tibbles are stored as plain data frames, like abundance and env below.
+  species_names <- as.data.frame(species_names)
 
   abundance_was_matrix <- is.matrix(abundance)
   if (!abundance_was_matrix && !is.data.frame(abundance)) {

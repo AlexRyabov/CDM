@@ -44,3 +44,7 @@ An object of class \code{cdm_data}, a list with:
 Combines species metadata, abundance data, environmental data, and relative
 abundance into a single \code{cdm_data} object.
 }
+\details{
+Data frames can also be tibbles; all parts of the result are stored as
+plain data frames.
+}

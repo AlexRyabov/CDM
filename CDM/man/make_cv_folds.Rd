@@ -10,13 +10,15 @@ make_cv_folds(
   v = 5L,
   repeats = 1L,
   balance = c("observations", "groups"),
-  strata = NULL
+  strata = NULL,
+  sample_id = NULL
 )
 }
 \arguments{
-\item{data}{A data frame with one row per sample, usually \code{cdm_data$env}.
-Its row names must be the sample IDs, as in \code{cdm_data$env}, so that the
-folds can be matched with the community data.}
+\item{data}{A data frame or tibble with one row per sample, usually
+\code{cdm_data$env}. The sample IDs are needed to match the folds with the
+community data: they are the row names, as in \code{cdm_data$env}, or the
+column \code{sample_id}. A tibble has no row names and needs \code{sample_id}.}
 
 \item{group}{Column with the groups (blocks) whose rows are kept together,
 given as a name or a string. \code{NULL} treats every row as its own group.}
@@ -32,6 +34,9 @@ or \code{"groups"} to balance the number of groups.}
 
 \item{strata}{Column used to balance the folds, given as a name or a
 string, or \code{NULL}.}
+
+\item{sample_id}{Column with the sample IDs, given as a name or a string.
+\code{NULL} uses the row names of \code{data}.}
 }
 \value{
 An \code{rset} with columns \code{splits} and \code{id} (and \code{id2} for repeats).

@@ -97,7 +97,9 @@ this step.
    the folds are random (`rsample::vfold_cv()`), and `v = "leave_block_out"`
    gives leave-one-out. `summary(cv)` shows the size, the groups, and the
    strata of every fold. Call `set.seed()` before `make_cv_folds()` for
-   reproducible folds.
+   reproducible folds. The samples are identified by the row names of
+   `cdm_data$env`; for other data, such as a tibble, give the column with the
+   sample IDs in `sample_id`.
 2. `model_options()` defines a support vector machine (`e1071::svm()`,
    libsvm); a random forest (`ranger`) is obtained with
    `update(svm_options, engine = "rf")`. Inside every training set the best
@@ -123,7 +125,11 @@ this step.
    same folds.
 4. `fit_model()` fits the final model with the engine `final_engine` on all
    samples. `predict(model, newdata)` returns the predicted community type
-   and the probability of every community type for each sample ID.
+   and the probability of every community type for each sample ID. `newdata`
+   is a `cdm_data` object or a data frame or tibble; without sample IDs as row
+   names, give their column in `sample_id`.
+
+Functions that take data frames also accept tibbles.
 
 The evaluation is the longest step: its duration grows with `v`, `inner_v`,
 the number of values in `n_predictors`, and `grid_size`. The tuning can run

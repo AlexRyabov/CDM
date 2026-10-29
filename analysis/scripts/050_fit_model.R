@@ -11,9 +11,9 @@ model_settings <- list(
     "Depth", "Month_doy", "Lon","temp_imputed"
 #    "Depth", "Month_doy", "Lat", "Lon", "sea_ice_monthly","temp_imputed", "mod_aq_par_imputed"
   ),
+  n_predictors = 2:4,           # numbers of predictors to try
   v = 5L,                       # outer folds, or "leave_block_out"
   repeats = 1L,                 # repeated fold assignments
-  n_predictors = 2:4,           # numbers of predictors to try
   selection_score = "imp_rf",   # predictor ranking score
   imbalance = "smotenc",        # "smotenc" or "none"
   metric = "macro_recall",      # "macro_recall", "macro_f1", or "roc_auc"

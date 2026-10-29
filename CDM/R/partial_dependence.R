@@ -15,8 +15,8 @@
 #' `length(pred1[[1]]) * length(pred2[[1]]) * nrow(data)`.
 #'
 #' @param model A `cdm_model` object created by [fit_model()].
-#' @param data A data frame with the samples to average over; it must contain
-#'   all predictors of the model (`model$predictors`).
+#' @param data A data frame or tibble with the samples to average over; it
+#'   must contain all predictors of the model (`model$predictors`).
 #' @param pred1,pred2 Named lists with one element each: the name is a numeric
 #'   predictor of the model, the element the grid of its values, for example
 #'   `list(temp_imputed = seq(-2, 8, length.out = 100))`. [pd2D_plot()] needs
@@ -26,7 +26,8 @@
 #'   `pred1` and `pred2`, the grids `x` (values of `pred1`) and `y` (values of
 #'   `pred2`), the `classes`, the array `probabilities` with dimensions
 #'   `length(x) x length(y) x length(classes)`, the number of averaged samples
-#'   `n_data`, their IDs `data_ids` (row names of `data`), and the provenance
+#'   `n_data`, their IDs `data_ids` (row names of `data`; row numbers for a
+#'   tibble or a data frame without row names), and the provenance
 #'   of the model (`model_provenance`).
 #'
 #' @export
@@ -38,6 +39,7 @@ pd2D_find <- function(model, data, pred1, pred2) {
   if (!is.data.frame(data) || nrow(data) == 0L) {
     stop("data must be a data frame with at least one row.", call. = FALSE)
   }
+  data <- as.data.frame(data)
   grids <- list(pred1 = pred1, pred2 = pred2)
   for (argument in names(grids)) {
     grid <- grids[[argument]]
