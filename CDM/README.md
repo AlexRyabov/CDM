@@ -6,7 +6,7 @@ Community Distribution Modelling in R.
 
 - `R/` contains functions that are part of the CDMr package.
 - `tests/testthat/` contains package tests; run them with `devtools::test()`.
-- `dev/` contains developer scripts (MATLAB comparison) excluded from the package build.
+- `dev/` (local only, not in git) contains developer scripts for the MATLAB comparison.
 - `../analysis/scripts/` contains user-editable analysis scripts and project settings.
 - `../analysis/data/` contains user data files.
 - `../analysis/results/` contains analysis outputs.
