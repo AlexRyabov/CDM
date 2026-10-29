@@ -13,3 +13,4 @@ analysis/results/
 # Local reference material and developer scripts, not part of the repository
 CDM/articles/
 CDM/dev/
+CDM/tests/

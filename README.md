@@ -14,7 +14,7 @@ analysis workflow in `analysis/`.
 
 ```text
 CDMr/
-  CDM/                         R package source (functions, tests, documentation)
+  CDM/                         R package source (functions and documentation)
   analysis/
     scripts/
       install_libraries.R      installs all required packages (run once)
@@ -181,6 +181,5 @@ in `default_settings`, or an unknown project name, produces an error.
 
 ## Package development
 
-Package functions are in `CDM/R/` and tests in `CDM/tests/testthat/`. From the
-`CDM/` folder, run the tests with `devtools::test()` and regenerate the
+Package functions are in `CDM/R/`. From the `CDM/` folder, regenerate the
 documentation with `devtools::document()`.
