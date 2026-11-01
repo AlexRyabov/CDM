@@ -10,15 +10,15 @@ make_cv_folds(
   v = 5L,
   repeats = 1L,
   balance = c("observations", "groups"),
-  strata = NULL,
-  sample_id = NULL
+  strata = NULL
 )
 }
 \arguments{
 \item{data}{A data frame or tibble with one row per sample, usually
-\code{cdm_data$env}. The sample IDs are needed to match the folds with the
-community data: they are the row names, as in \code{cdm_data$env}, or the
-column \code{sample_id}. A tibble has no row names and needs \code{sample_id}.}
+\code{cdm_data$env}. The folds keep these data, as all \code{rsample} objects do.
+\code{\link[=cross_validate_model]{cross_validate_model()}} uses their group and strata columns for its inner
+folds, and their column \code{sample_id} (if present) to name the samples in
+its results; without \code{sample_id} the samples are row numbers.}
 
 \item{group}{Column with the groups (blocks) whose rows are kept together,
 given as a name or a string. \code{NULL} treats every row as its own group.}
@@ -34,9 +34,6 @@ or \code{"groups"} to balance the number of groups.}
 
 \item{strata}{Column used to balance the folds, given as a name or a
 string, or \code{NULL}.}
-
-\item{sample_id}{Column with the sample IDs, given as a name or a string.
-\code{NULL} uses the row names of \code{data}.}
 }
 \value{
 An \code{rset} with columns \code{splits} and \code{id} (and \code{id2} for repeats).
@@ -79,10 +76,10 @@ Use \code{\link[=set.seed]{set.seed()}} before the call to make the folds reprod
 }
 \examples{
 env <- data.frame(
+  sample_id = paste0("s", 1:40),
   year = rep(2010:2017, each = 5),
   month = rep(c(6, 7, 7, 8, 9, 6, 7, 8), each = 5)
 )
-rownames(env) <- paste0("s", seq_len(nrow(env)))
 
 set.seed(1)
 folds <- make_cv_folds(env, group = year, v = 4, strata = month)

@@ -1,13 +1,49 @@
 # CDMr 0.0.0.9000
 
-* Functions that take data frames also accept tibbles: `prepare_data()`,
-  `make_cv_folds()`, `predict()` for `cdm_model`, `pd2D_find()`, and
-  `pd2D_plot()`. Tibbles are converted to plain data frames; all parts of a
-  `cdm_data` object are plain data frames.
-* `make_cv_folds()` gains `sample_id`, the column with the sample IDs, for
-  data without sample IDs as row names, such as tibbles. `make_cv_folds()`
-  and `predict()` now stop with an error for data without sample IDs instead
-  of using row numbers as IDs.
+## New data format and explicit inputs
+
+Saved results of earlier versions (`cdm_data.rds` and all later files) do
+not work with this version; run the analysis scripts again from
+`005_import_data.R`.
+
+* `cdm_data` holds plain data frames with samples in rows and no row names:
+  `abundance` and `relative_abundance` (`sample_id`, then one column per
+  taxon named by its `taxon_id`), `env` (`sample_id`, then the environmental
+  variables), and `taxa` (`taxon_id`, then the taxonomy; it replaces
+  `species_names`). The field `sample_names` is removed. IDs are stored as
+  text; numeric IDs are written without scientific notation.
+* New `transpose_abundance(x, taxon_id = NULL)` turns a species table with
+  taxa in rows into a table with samples in rows.
+* `prepare_data(abundance, env, taxa = NULL, sample_id = "sample_id",
+  taxon_id = "taxon_id")` has new arguments. It matches the tables by the
+  named ID columns, or by order when an ID argument is `NULL`.
+* `subset(cdm_data, condition)` replaces `filter_cdm_data()`.
+* Functions take the parts of `cdm_data` they need instead of the whole
+  object: `map_comm(x, options)`, `update_community_type(env,
+  clustered_map)`, `plot_map(cdm_map, data, x, y, color)`,
+  `community_deviation_indexes(x, taxa, group_by, ...)`, and
+  `plot_community_by_type(composition, data, community_type)`. A column
+  `sample_id` identifies the samples; tables without it are matched by order.
+* `map_comm()` returns the coordinates with a `sample_id` column;
+  `cluster_comm()` returns the community types as a table (`sample_id`,
+  `community_type`). `community_deviation_indexes()` returns one row per
+  sample and one column per taxonomic group.
+* `evaluate_model()` is renamed to `cross_validate_model()`, because it
+  estimates the prediction quality and does not return a fitted model.
+* Models work like scikit-learn: `cross_validate_model(x, y, cv, options)` and
+  `fit_model(x, y, cv, options)` take a predictor table `x`, the classes `y`,
+  and folds `cv` made from the same rows. `model_options()` no longer has
+  `predictors` and `target`; `n_predictors` is replaced by
+  `n_predictors_min` (default 1) and `n_predictors_max` (default all columns
+  of `x`). `predict(model, newdata)` returns one row per row of `newdata`.
+* `make_cv_folds()`, `predict()`, and `pd2D_find()` name samples by the
+  column `sample_id`, or by row numbers.
+* Functions that take data frames also accept tibbles.
+* `pd2D_find(model, data, grid)` takes both grids in one named list instead
+  of `pred1` and `pred2`. `plot()` of its result replaces
+  `pd2D_plot(pd2D_mostprobable(pd))`; `pd2D_plot()` is removed.
+* ggplot2, mclust, patchwork, and viridisLite are now required packages
+  (`Imports`), so they are installed with CDMr.
 
 * Two-dimensional partial dependence: `pd2D_find()` (probabilities of all
   community types on a grid of two predictors, averaged over the samples of
@@ -33,10 +69,9 @@
   `rset`; groups stay together, folds are balanced by strata and, with
   `balance = "observations"`, by size; `v = "leave_block_out"` gives
   leave-one-group-out (or leave-one-out without `group`). The stratum may vary
-  within a group. `evaluate_model()` and `fit_model()` accept any `rset` made
-  from `cdm_data$env` and reject folds that hold out a sample twice or split a
+  within a group. `evaluate_model()` and `fit_model()` accept any `rset` and
+  reject folds that hold out a sample twice or split a
   group (as `rsample::group_vfold_cv()` 1.3.2 can with `strata` and `pool > 0`).
-* `model_options()` has a `target` argument.
 * `setup_project()` adds the result files `cv_folds`, `svm_evaluation`,
   `rf_evaluation`, and `model`.
 
@@ -44,7 +79,7 @@
   `complete_config()`. It combines base settings with the settings of the
   selected project, rejects settings not defined in `default_settings`, adds
   full input and result file paths, and creates the results directory.
-* `filter_cdm_data()` also accepts a quoted condition, such as
+* `filter_cdm_data()` (now `subset()`) also accepts a quoted condition, such as
   `quote(Depth < 105)` stored in project settings.
 
 * `map()` and `cluster()` are renamed to `map_comm()` and `cluster_comm()` to

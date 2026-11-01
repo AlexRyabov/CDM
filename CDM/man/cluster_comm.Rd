@@ -7,21 +7,23 @@
 cluster_comm(cdm_map, options = cluster_options())
 }
 \arguments{
-\item{cdm_map}{An object created by \code{map_comm()}.}
+\item{cdm_map}{An object created by \code{\link[=map_comm]{map_comm()}}.}
 
-\item{options}{Clustering options created by \code{cluster_options()}.}
+\item{options}{Clustering options created by \code{\link[=cluster_options]{cluster_options()}}.}
 }
 \value{
-The input \code{cdm_map} object with added fields:
+The input \code{cdm_map} object with two added fields:
 \describe{
-\item{community_type}{Factor of community types named by sample ID.}
-\item{cluster_result}{An object of class \code{cdm_cluster} with cluster
-assignments, membership probabilities, the selected number of clusters,
-BIC values, and the fitted clustering object.}
+\item{community_type}{A data frame with one row per sample in the order
+of \code{cdm_map$map}: \code{sample_id} (if the map has it), then the factor
+\code{community_type}.}
+\item{cluster_result}{An object of class \code{cdm_cluster} with the cluster
+of every sample, membership probabilities, the selected number of
+clusters, BIC values, and the fitted clustering object.}
 }
 }
 \description{
-Clusters samples using coordinates from a \code{cdm_map} object and adds
-community type IDs to that object. Currently the supported clustering method
-is \code{"mclust"}.
+Clusters the samples by their map coordinates and adds the community type
+of every sample to the map. Currently the supported clustering method is
+\code{"mclust"}.
 }

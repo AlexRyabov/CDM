@@ -5,7 +5,8 @@
 \title{Calculate community deviation indexes}
 \usage{
 community_deviation_indexes(
-  cdm_data,
+  x,
+  taxa,
   group_by,
   measure = c("abundance", "richness"),
   scale = c("relative", "absolute"),
@@ -14,53 +15,61 @@ community_deviation_indexes(
 )
 }
 \arguments{
-\item{cdm_data}{An object created by \code{prepare_data()}.}
+\item{x}{A data frame, tibble, or matrix of relative abundances with
+samples in rows and one column per taxon named by its \code{taxon_id},
+usually \code{cdm_data$relative_abundance}. A column \code{sample_id} is not used
+in the calculation; it is copied to the result.}
 
-\item{group_by}{Name of the grouping column in \code{cdm_data$species_names}, for
-example \code{"Phylum"}.}
+\item{taxa}{A data frame with the column \code{taxon_id} and the column
+\code{group_by}, usually \code{cdm_data$taxa}. Every taxon column of \code{x} must be
+found in \code{taxa$taxon_id}.}
+
+\item{group_by}{Name of the grouping column in \code{taxa}, for example
+\code{"Phylum"}.}
 
 \item{measure}{Group contribution to calculate: summed relative abundance or
 the number of taxa with positive abundance.}
 
-\item{scale}{Output scale. \code{"relative"} returns log10 deviation indexes;
-\code{"absolute"} returns the grouped contributions \code{S_kj}.}
+\item{scale}{\code{"relative"} returns log10 deviation indexes; \code{"absolute"}
+returns the grouped contributions \code{S_jk}.}
 
-\item{reference}{Dataset-wide reference function, either \code{"median"} or
-\code{"mean"}.}
+\item{reference}{Reference over all samples: \code{"median"} or \code{"mean"}.}
 
-\item{max_groups}{Maximum number of groups to return. Groups are selected by
-decreasing reference value.}
+\item{max_groups}{Maximum number of groups to return. Groups with the
+largest reference values are kept.}
 }
 \value{
-An object of class \code{cdm_community_deviation_indexes}, containing:
+An object of class \code{cdm_community_deviation_indexes}, a list with:
 \describe{
-\item{reference}{A numeric vector whose names identify the taxonomic
-groups. Groups are sorted by decreasing reference value.}
-\item{deviation}{A data frame with taxonomic groups in rows and samples in
-columns. Row names identify the groups and follow the same decreasing
-reference order; column names are sample IDs. On the absolute scale the
-table contains \code{S_kj}; on the relative scale it contains \code{D_kj}.}
+\item{reference}{A numeric vector named by taxonomic group, sorted by
+decreasing reference value.}
+\item{deviation}{A data frame with one row per sample in the order of
+\code{x}: \code{sample_id} (if \code{x} has it), then one column per taxonomic group
+in the order of \code{reference}. On the absolute scale it contains \code{S_jk};
+on the relative scale it contains \code{D_jk}.}
 }
 }
 \description{
-Aggregates taxon contributions into groups and returns either their absolute
-sample values or their log10 deviations from a dataset-wide reference.
+Sums the contributions of the taxa in every taxonomic group and returns
+either these sums per sample or their log10 deviations from a reference
+over all samples.
 }
 \details{
-For sample \code{j} and taxonomic group \code{k}, the grouped contribution \code{S_kj} is
+For sample \code{j} and taxonomic group \code{k}, the grouped contribution \code{S_jk} is
 the sum of relative abundances when \code{measure = "abundance"}. When
 \code{measure = "richness"}, it is the number of taxa in the group with positive
-abundance. Taxa are assigned to groups using a column of
-\code{cdm_data$species_names} selected by \code{group_by}.
+abundance. The group of every taxon is taken from the column \code{group_by} of
+\code{taxa}.
 
-The reference \verb{S*_k} is the mean or median of \code{S_kj} across all samples,
+The reference \verb{S*_k} is the mean or median of \code{S_jk} over all samples,
 including samples with zero contribution. With \code{scale = "relative"}, the
-deviation index is \verb{D_kj = log10(S_kj / S*_k)}. Positive values indicate
-contributions above the reference, negative values indicate contributions
-below it, and values of 1 and -1 represent ten-fold enrichment and depletion.
+deviation index is \verb{D_jk = log10(S_jk / S*_k)}. Positive values mean a
+contribution above the reference, negative values a contribution below it;
+1 and -1 mean ten times more and ten times less.
 
-To make relative indexes finite when \code{S_kj} is zero, zeros are replaced by
-one-tenth of the smallest positive value in the complete grouped matrix.
-Abundance compositions are then renormalized to sum to one within samples.
-A group with a zero reference remains undefined and is returned as \code{NA}.
+To keep relative indexes finite when \code{S_jk} is zero, zeros are replaced by
+one tenth of the smallest positive value of all grouped contributions.
+Abundance compositions are then scaled again to sum to one in every
+sample. A group with a zero reference has no defined deviation and gets
+\code{NA}.
 }

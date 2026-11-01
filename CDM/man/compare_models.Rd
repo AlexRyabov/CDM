@@ -21,7 +21,7 @@ values are better.
 }
 \description{
 Compares every pair of model evaluations, for example an SVM and a random
-forest, that were computed with \code{\link[=evaluate_model]{evaluate_model()}} on the same data and the
+forest, that were computed with \code{\link[=cross_validate_model]{cross_validate_model()}} on the same data and the
 same cross-validation folds. Differences are given for the pooled
 out-of-fold metrics and for the metrics of single folds, where the paired
 fold differences show how consistent an advantage is.

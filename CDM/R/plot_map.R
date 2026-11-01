@@ -1,60 +1,40 @@
 #' Plot CDM map coordinates
 #'
-#' Creates a scatter plot of map coordinates colored by a map coordinate, an
-#' environmental variable, or a user-supplied vector.
+#' Draws the samples at their map coordinates, colored by a map coordinate,
+#' a column of `data`, or a vector.
 #'
-#' Environmental variables are matched to map coordinates by sample ID.
-#'
-#' @param cdm_map An object created by `map_comm()`.
-#' @param cdm_data An object created by `prepare_data()`. It must contain all
-#'   samples of `cdm_map`.
+#' @param cdm_map An object created by [map_comm()].
+#' @param data `NULL` or a data frame or tibble with one row per sample,
+#'   usually `cdm_data$env`, with the variables used for colors. It must
+#'   contain every sample of the map; extra rows are ignored. Samples are
+#'   matched by `sample_id` when the map and `data` both have it, otherwise
+#'   by order.
 #' @param x Name of the map coordinate used on the x-axis.
 #' @param y Name of the map coordinate used on the y-axis.
-#' @param color Optional color variable. Can be a column name in `cdm_map$map`,
-#'   a column name in `cdm_data$env`, or a vector with one value per sample.
-#'   A named vector is matched to samples by name; an unnamed vector must
-#'   follow the row order of `cdm_map$map`.
+#' @param color `NULL`, the name of a column of `cdm_map$map` or of `data`,
+#'   or a vector with one value per row of `cdm_map$map`, in the same order.
 #'
 #' @return A `ggplot` object.
 #'
 #' @export
 plot_map <- function(cdm_map,
-                     cdm_data,
+                     data = NULL,
                      x = "dm_1",
                      y = "dm_2",
                      color = NULL) {
   if (!inherits(cdm_map, "cdm_map")) {
     stop("cdm_map must be an object created by map_comm().", call. = FALSE)
   }
-  if (!inherits(cdm_data, "cdm_data")) {
-    stop("cdm_data must be an object created by prepare_data().", call. = FALSE)
+  if (!is.null(data) && !is.data.frame(data)) {
+    stop("data must be a data frame with one row per sample, or NULL.", call. = FALSE)
   }
-  if (!requireNamespace("ggplot2", quietly = TRUE)) {
-    stop("Package 'ggplot2' is required to plot maps.", call. = FALSE)
-  }
-  if (!requireNamespace("viridisLite", quietly = TRUE)) {
-    stop("Package 'viridisLite' is required to plot maps.", call. = FALSE)
+  map_data <- cdm_map$map
+  if (!all(c(x, y) %in% setdiff(names(map_data), "sample_id"))) {
+    stop("x and y must be coordinate names in cdm_map$map, such as \"dm_1\".", call. = FALSE)
   }
 
-  if (!all(c(x, y) %in% names(cdm_map$map))) {
-    stop("x and y must be column names in cdm_map$map.", call. = FALSE)
-  }
-
-  missing_samples <- setdiff(rownames(cdm_map$map), rownames(cdm_data$env))
-  if (length(missing_samples) > 0L) {
-    stop(
-      "cdm_data$env is missing samples from cdm_map: ",
-      paste(missing_samples, collapse = ", "),
-      call. = FALSE
-    )
-  }
-
+  plot_data <- data.frame(x_value = map_data[[x]], y_value = map_data[[y]])
   if (is.null(color)) {
-    plot_data <- data.frame(
-      x_value = cdm_map$map[[x]],
-      y_value = cdm_map$map[[y]]
-    )
-
     return(
       ggplot2::ggplot(plot_data, ggplot2::aes(x = x_value, y = y_value)) +
         ggplot2::geom_point(size = 2.2, alpha = 0.9) +
@@ -63,30 +43,38 @@ plot_map <- function(cdm_map,
     )
   }
 
-  color_data <- resolve_plot_color(color, cdm_map, cdm_data)
-  plot_data <- data.frame(
-    x_value = cdm_map$map[[x]],
-    y_value = cdm_map$map[[y]],
-    color_value = color_data$values
-  )
+  # A single string is always a column name; other values are colors per sample.
+  if (is.character(color) && length(color) == 1L) {
+    color_name <- color
+    if (color %in% names(map_data)) {
+      plot_data$color_value <- map_data[[color]]
+    } else if (!is.null(data) && color %in% names(data)) {
+      data <- as.data.frame(data, check.names = FALSE)
+      data_rows <- match_sample_rows(map_data, data, "the map", "data")
+      plot_data$color_value <- data[[color]][data_rows]
+    } else {
+      stop("color must be a column name of cdm_map$map or of data.", call. = FALSE)
+    }
+  } else {
+    if (length(color) != nrow(map_data)) {
+      stop("A color vector must have one value per sample of the map (", nrow(map_data), ").", call. = FALSE)
+    }
+    color_name <- "color"
+    plot_data$color_value <- unname(color)
+  }
 
   p <- ggplot2::ggplot(
     plot_data,
     ggplot2::aes(x = x_value, y = y_value, color = color_value)
   ) +
     ggplot2::geom_point(size = 2.2, alpha = 0.9) +
-    ggplot2::labs(
-      x = x,
-      y = y,
-      title = color_data$name,
-      color = color_data$name
-    ) +
+    ggplot2::labs(x = x, y = y, title = color_name, color = color_name) +
     ggplot2::theme_classic(base_size = 12)
 
   if (is.numeric(plot_data$color_value)) {
     p <- p + ggplot2::scale_color_gradientn(
       colors = viridisLite::turbo(100),
-      name = color_data$name
+      name = color_name
     )
   }
 
@@ -95,30 +83,3 @@ plot_map <- function(cdm_map,
 
 # Columns of plot_data used in ggplot2::aes().
 utils::globalVariables(c("x_value", "y_value", "color_value"))
-
-resolve_plot_color <- function(color, cdm_map, cdm_data) {
-  sample_ids <- rownames(cdm_map$map)
-
-  if (is.character(color) && length(color) == 1L) {
-    if (color %in% names(cdm_map$map)) {
-      return(list(values = cdm_map$map[[color]], name = color))
-    }
-    if (color %in% names(cdm_data$env)) {
-      env_rows <- match(sample_ids, rownames(cdm_data$env))
-      return(list(values = cdm_data$env[[color]][env_rows], name = color))
-    }
-    stop("color must be a column name in cdm_map$map or cdm_data$env.", call. = FALSE)
-  }
-
-  if (length(color) != length(sample_ids)) {
-    stop("color vector must have one value for each sample.", call. = FALSE)
-  }
-  if (!is.null(names(color))) {
-    if (!setequal(names(color), sample_ids) || anyDuplicated(names(color))) {
-      stop("Names of the color vector must be the sample IDs of cdm_map.", call. = FALSE)
-    }
-    color <- color[sample_ids]
-  }
-
-  list(values = unname(color), name = "color")
-}

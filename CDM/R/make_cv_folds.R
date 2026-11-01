@@ -30,9 +30,10 @@
 #' Use [set.seed()] before the call to make the folds reproducible.
 #'
 #' @param data A data frame or tibble with one row per sample, usually
-#'   `cdm_data$env`. The sample IDs are needed to match the folds with the
-#'   community data: they are the row names, as in `cdm_data$env`, or the
-#'   column `sample_id`. A tibble has no row names and needs `sample_id`.
+#'   `cdm_data$env`. The folds keep these data, as all `rsample` objects do.
+#'   [cross_validate_model()] uses their group and strata columns for its inner
+#'   folds, and their column `sample_id` (if present) to name the samples in
+#'   its results; without `sample_id` the samples are row numbers.
 #' @param group Column with the groups (blocks) whose rows are kept together,
 #'   given as a name or a string. `NULL` treats every row as its own group.
 #' @param v Number of folds, or `"leave_block_out"` to make every group (or
@@ -43,8 +44,6 @@
 #'   or `"groups"` to balance the number of groups.
 #' @param strata Column used to balance the folds, given as a name or a
 #'   string, or `NULL`.
-#' @param sample_id Column with the sample IDs, given as a name or a string.
-#'   `NULL` uses the row names of `data`.
 #'
 #' @return An `rset` with columns `splits` and `id` (and `id2` for repeats).
 #'   For grouped or leave-out folds the class is `cdm_group_vfold_cv`; the
@@ -53,10 +52,10 @@
 #'
 #' @examples
 #' env <- data.frame(
+#'   sample_id = paste0("s", 1:40),
 #'   year = rep(2010:2017, each = 5),
 #'   month = rep(c(6, 7, 7, 8, 9, 6, 7, 8), each = 5)
 #' )
-#' rownames(env) <- paste0("s", seq_len(nrow(env)))
 #'
 #' set.seed(1)
 #' folds <- make_cv_folds(env, group = year, v = 4, strata = month)
@@ -70,33 +69,15 @@ make_cv_folds <- function(data,
                           v = 5L,
                           repeats = 1L,
                           balance = c("observations", "groups"),
-                          strata = NULL,
-                          sample_id = NULL) {
+                          strata = NULL) {
   balance <- match.arg(balance)
   if (!is.data.frame(data) || nrow(data) < 2L) {
     stop("data must be a data frame with at least two rows.", call. = FALSE)
   }
-  # The folds identify samples by the row names of their data, which a
-  # tibble does not have.
   data <- as.data.frame(data)
-  sample_id <- resolve_column_argument(rlang::enquo(sample_id), data, "sample_id")
-  if (!is.null(sample_id)) {
-    ids <- as.character(data[[sample_id]])
-    if (anyDuplicated(ids)) {
-      stop("The sample_id column '", sample_id, "' must contain unique sample IDs.", call. = FALSE)
-    }
-    rownames(data) <- ids
-  } else if (.row_names_info(data) < 0L) {
-    stop(
-      "data has no sample IDs: use a data frame with sample IDs as row names, such as ",
-      "cdm_data$env, or give the column with the sample IDs in sample_id.",
-      call. = FALSE
-    )
-  }
-  ids <- rownames(data)
-  if (anyNA(ids) || any(!nzchar(ids)) || anyDuplicated(ids)) {
-    stop("Row names of data must be unique sample IDs.", call. = FALSE)
-  }
+  rownames(data) <- NULL
+  # Without groups every row is its own group.
+  ids <- as.character(seq_len(nrow(data)))
   group <- resolve_column_argument(rlang::enquo(group), data, "group")
   strata <- resolve_column_argument(rlang::enquo(strata), data, "strata")
   repeats <- validate_count_argument(repeats, "repeats", minimum = 1L)
@@ -183,7 +164,7 @@ summary.cdm_group_vfold_cv <- function(object, ...) {
       split = split_names[i],
       n_train = nrow(data) - length(test_rows),
       n_test = length(test_rows),
-      groups_test = paste(unique(if (is.null(group)) rownames(data)[test_rows] else
+      groups_test = paste(unique(if (is.null(group)) table_sample_ids(data)[test_rows] else
         as.character(data[[group]][test_rows])), collapse = ", "),
       stringsAsFactors = FALSE
     )
@@ -343,23 +324,20 @@ assign_groups_to_folds <- function(group_strata_counts, v, balance) {
   assignment
 }
 
-# Converts an rset into a fold table (sample_id, repeat_id, fold) using the
-# row names of its data as sample IDs, and checks that it is a valid
-# partition: in every repeat each sample is held out exactly once, and the
-# rows of a group (if the rset has a group attribute) are held out together.
-rset_folds <- function(cv, sample_ids) {
-  if (!inherits(cv, "rset") || !"splits" %in% names(cv)) {
+# Converts an rset into a fold table (sample_id, repeat_id, fold), using the
+# sample_id column of its data (row numbers if there is none), and checks
+# that it is a valid partition: in every repeat each sample is held out
+# exactly once, and the rows of a group (if the rset has a group attribute)
+# are held out together. Also returns the data of the rset as a data frame
+# with a sample_id column, so that inner folds made from it keep the IDs.
+rset_folds <- function(cv) {
+  if (!inherits(cv, "rset") || !"splits" %in% names(cv) || nrow(cv) == 0L) {
     stop("cv must be an rsample resampling object, for example from make_cv_folds().", call. = FALSE)
   }
-  data <- cv$splits[[1L]]$data
-  data_ids <- rownames(data)
-  if (!setequal(data_ids, sample_ids) || length(data_ids) != length(sample_ids)) {
-    stop(
-      "The rows of the cross-validation data must be the samples of cdm_data, with sample IDs ",
-      "as row names. Create the folds from cdm_data$env.",
-      call. = FALSE
-    )
-  }
+  data <- as.data.frame(cv$splits[[1L]]$data)
+  rownames(data) <- NULL
+  data_ids <- table_sample_ids(data)
+  data$sample_id <- data_ids
 
   repeat_ids <- if ("id2" %in% names(cv)) match(cv$id, unique(cv$id)) else rep(1L, nrow(cv))
   folds <- do.call(rbind, lapply(seq_len(nrow(cv)), function(i) {
@@ -387,7 +365,7 @@ rset_folds <- function(cv, sample_ids) {
 
   group <- unname(attr(cv, "group"))
   if (!is.null(group) && group %in% names(data)) {
-    group_values <- as.character(data[folds$sample_id, group])
+    group_values <- as.character(data[[group]][match(folds$sample_id, data_ids)])
     folds_per_group <- tapply(folds$fold, paste(folds$repeat_id, group_values), function(x) length(unique(x)))
     if (any(folds_per_group > 1L)) {
       stop(
@@ -398,7 +376,7 @@ rset_folds <- function(cv, sample_ids) {
     }
   }
 
-  folds <- folds[order(folds$repeat_id, match(folds$sample_id, sample_ids)), , drop = FALSE]
+  folds <- folds[order(folds$repeat_id, match(folds$sample_id, data_ids)), , drop = FALSE]
   rownames(folds) <- NULL
   list(
     folds = folds,

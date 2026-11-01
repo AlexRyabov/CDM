@@ -4,30 +4,28 @@
 \alias{plot_map}
 \title{Plot CDM map coordinates}
 \usage{
-plot_map(cdm_map, cdm_data, x = "dm_1", y = "dm_2", color = NULL)
+plot_map(cdm_map, data = NULL, x = "dm_1", y = "dm_2", color = NULL)
 }
 \arguments{
-\item{cdm_map}{An object created by \code{map_comm()}.}
+\item{cdm_map}{An object created by \code{\link[=map_comm]{map_comm()}}.}
 
-\item{cdm_data}{An object created by \code{prepare_data()}. It must contain all
-samples of \code{cdm_map}.}
+\item{data}{\code{NULL} or a data frame or tibble with one row per sample,
+usually \code{cdm_data$env}, with the variables used for colors. It must
+contain every sample of the map; extra rows are ignored. Samples are
+matched by \code{sample_id} when the map and \code{data} both have it, otherwise
+by order.}
 
 \item{x}{Name of the map coordinate used on the x-axis.}
 
 \item{y}{Name of the map coordinate used on the y-axis.}
 
-\item{color}{Optional color variable. Can be a column name in \code{cdm_map$map},
-a column name in \code{cdm_data$env}, or a vector with one value per sample.
-A named vector is matched to samples by name; an unnamed vector must
-follow the row order of \code{cdm_map$map}.}
+\item{color}{\code{NULL}, the name of a column of \code{cdm_map$map} or of \code{data},
+or a vector with one value per row of \code{cdm_map$map}, in the same order.}
 }
 \value{
 A \code{ggplot} object.
 }
 \description{
-Creates a scatter plot of map coordinates colored by a map coordinate, an
-environmental variable, or a user-supplied vector.
-}
-\details{
-Environmental variables are matched to map coordinates by sample ID.
+Draws the samples at their map coordinates, colored by a map coordinate,
+a column of \code{data}, or a vector.
 }

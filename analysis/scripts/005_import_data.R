@@ -1,7 +1,7 @@
 # Define project name, folders and options in config.R.
-source("config.R")
+source(here::here("analysis", "scripts", "config.R"))
 
-# Load species abundance and environmental tables.
+# Load the species table (taxa in rows) and the environmental table.
 species_table <- as.data.frame(
   read_excel(cdm_config$files$species),
   check.names = FALSE
@@ -11,7 +11,8 @@ env <- as.data.frame(
   check.names = FALSE
 )
 
-# Split taxonomy columns from abundance columns.
+# The taxonomy columns end with columns$last_taxonomy; one abundance column
+# per sample follows.
 last_taxonomy_col <- match(cdm_config$columns$last_taxonomy, names(species_table))
 if (is.na(last_taxonomy_col) || last_taxonomy_col == ncol(species_table)) {
   stop(
@@ -21,20 +22,27 @@ if (is.na(last_taxonomy_col) || last_taxonomy_col == ncol(species_table)) {
     call. = FALSE
   )
 }
-species_names <- species_table[seq_len(last_taxonomy_col)]
-abundance <- species_table[(last_taxonomy_col + 1L):ncol(species_table)]
+taxa <- species_table[seq_len(last_taxonomy_col)]
 
-# Build the community data object; samples are matched by ID.
+# Put the samples in rows; the taxon columns are named by their IDs.
+taxon_ids <- if (is.null(cdm_config$columns$taxon_id)) NULL else taxa[[cdm_config$columns$taxon_id]]
+abundance <- transpose_abundance(
+  species_table[(last_taxonomy_col + 1L):ncol(species_table)],
+  taxon_id = taxon_ids
+)
+
+# Build the community data object; samples and taxa are matched by ID.
 cdm_data <- prepare_data(
-  species_names,
   abundance,
   env,
-  env_sample_col = cdm_config$columns$sample_id
+  taxa,
+  sample_id = cdm_config$columns$sample_id,
+  taxon_id = cdm_config$columns$taxon_id
 )
 
 # Keep the samples selected by the project sample filter.
 if (!is.null(cdm_config$sample_filter)) {
-  cdm_data <- filter_cdm_data(cdm_data, cdm_config$sample_filter)
+  cdm_data <- subset(cdm_data, cdm_config$sample_filter)
 }
 
 # Save community data.

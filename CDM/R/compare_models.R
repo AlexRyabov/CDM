@@ -1,7 +1,7 @@
 #' Compare model evaluations on the same folds
 #'
 #' Compares every pair of model evaluations, for example an SVM and a random
-#' forest, that were computed with [evaluate_model()] on the same data and the
+#' forest, that were computed with [cross_validate_model()] on the same data and the
 #' same cross-validation folds. Differences are given for the pooled
 #' out-of-fold metrics and for the metrics of single folds, where the paired
 #' fold differences show how consistent an advantage is.
@@ -26,10 +26,10 @@ compare_models <- function(...) {
     stop("compare_models() needs at least two evaluations with unique names.", call. = FALSE)
   }
   if (!all(vapply(evaluations, inherits, logical(1), "cdm_model_evaluation"))) {
-    stop("All arguments must be created by evaluate_model().", call. = FALSE)
+    stop("All arguments must be created by cross_validate_model().", call. = FALSE)
   }
   for (evaluation in evaluations) {
-    stop_if_kernlab(evaluation, "evaluate_model")
+    stop_if_kernlab(evaluation, "cross_validate_model")
   }
   reference <- evaluations[[1L]]$provenance
   for (name in model_names[-1L]) {

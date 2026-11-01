@@ -4,22 +4,26 @@
 \alias{plot_community_by_type}
 \title{Plot community composition by community type}
 \usage{
-plot_community_by_type(cdm_data, composition_data)
+plot_community_by_type(composition, data, community_type = "community_type")
 }
 \arguments{
-\item{cdm_data}{An object created by \code{prepare_data()} with a
-\code{community_type} column in \code{cdm_data$env}.}
+\item{composition}{An object returned by \code{\link[=community_deviation_indexes]{community_deviation_indexes()}}.}
 
-\item{composition_data}{An object returned by \code{community_deviation_indexes()} for
-the same \code{cdm_data} object.}
+\item{data}{A data frame or tibble with one row per sample and the
+community type, usually \code{cdm_data$env}. It must contain every sample of
+\code{composition}; extra rows are ignored. Samples are matched by
+\code{sample_id} when both tables have it, otherwise by order.}
+
+\item{community_type}{Column of \code{data} with the community types, given as
+a name or a string.}
 }
 \value{
-A patchwork plot object. Its component plots and community-type
-names are stored in the \code{plots} and \code{community_types} attributes.
+A patchwork plot object. Its panels and community-type names are
+stored in the attributes \code{plots} and \code{community_types}.
 }
 \description{
-Splits the samples in a community composition object according to
-\code{cdm_data$env$community_type}, draws one community-deviation box-plot
-panel for each observed type, and combines the panels into one figure. All
-panels preserve the group order from \code{composition_data$deviation} row names.
+Splits the samples of a community deviation table by their community type,
+draws one box plot panel per type with \code{\link[=plot_community_composition]{plot_community_composition()}}, and
+combines the panels into one figure. All panels keep the group order of
+\code{composition$reference}.
 }

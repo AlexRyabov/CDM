@@ -5,10 +5,9 @@
 \title{Create options for community-type models}
 \usage{
 model_options(
-  predictors,
-  target = "community_type",
   engine = c("svm", "rf"),
-  n_predictors = 2:8,
+  n_predictors_min = 1L,
+  n_predictors_max = NULL,
   selection_score = c("imp_rf", "imp_rf_conditional", "imp_rf_oblique", "info_gain",
     "gain_ratio", "sym_uncert"),
   imbalance = c("smotenc", "none"),
@@ -21,17 +20,13 @@ model_options(
 )
 }
 \arguments{
-\item{predictors}{Character vector of predictor columns in \code{cdm_data$env}.
-The columns must be numeric, factor, character, or logical and must not
-contain missing values.}
-
-\item{target}{Column in \code{cdm_data$env} with the classes to predict, usually
-\code{"community_type"} added by \code{\link[=update_community_type]{update_community_type()}}.}
-
 \item{engine}{\code{"svm"} for a support vector machine or \code{"rf"} for a random
 forest.}
 
-\item{n_predictors}{Integer vector with the numbers of predictors to try.}
+\item{n_predictors_min}{Smallest number of selected predictors to try.}
+
+\item{n_predictors_max}{Largest number of selected predictors to try.
+\code{NULL} means all columns of \code{x}; it is set when the model is fitted.}
 
 \item{selection_score}{Score used to rank predictors, passed to
 \code{important::step_predictor_best()}. \code{"imp_rf"} (random forest
@@ -48,7 +43,7 @@ predictors and then simpler models.}
 \item{grid_size}{Number of engine parameter combinations.}
 
 \item{inner_v}{Number of folds of the inner (tuning) cross-validation in
-\code{\link[=evaluate_model]{evaluate_model()}}.}
+\code{\link[=cross_validate_model]{cross_validate_model()}}.}
 
 \item{correlation_threshold}{Absolute correlation above which one predictor
 of a pair is removed.}
@@ -62,19 +57,22 @@ set.}
 An object of class \code{cdm_model_options}.
 }
 \description{
-Creates the options used by \code{\link[=evaluate_model]{evaluate_model()}} and \code{\link[=fit_model]{fit_model()}} to predict
-community types and their probabilities from environmental predictors.
+Creates the method settings used by \code{\link[=cross_validate_model]{cross_validate_model()}} and \code{\link[=fit_model]{fit_model()}}
+to predict community types and their probabilities from environmental
+predictors. Like an unfitted scikit-learn estimator, the options do not
+contain data: the predictors are the columns of \code{x} given to
+\code{\link[=cross_validate_model]{cross_validate_model()}} and \code{\link[=fit_model]{fit_model()}}. All settings have defaults.
 }
 \details{
 Inside every training set the predictors pass a fixed preprocessing recipe:
 new factor levels are allowed (\code{recipes::step_novel()}), predictors without
 variance are removed, numeric predictors are standardized (SVM only), and of
 every pair of numeric predictors with absolute correlation above
-\code{correlation_threshold} one is removed. The best \code{n_predictors} remaining
-predictors are then selected with \code{important::step_predictor_best()}, before
-dummy coding, so that a categorical predictor counts as one predictor.
-Classes are balanced afterwards with SMOTE-NC (\code{themis::step_smotenc()}).
-The number of predictors and the engine parameters are tuned together.
+\code{correlation_threshold} one is removed. The best predictors are then
+selected with \code{important::step_predictor_best()}, before dummy coding, so
+that a categorical predictor counts as one predictor. Classes are balanced
+afterwards with SMOTE-NC (\code{themis::step_smotenc()}). The number of
+predictors and the engine parameters are tuned together.
 
 Classes with fewer than \code{min_class_size} samples in a training set are left
 out of that training set; the model gives them probability 0. SMOTE-NC uses
@@ -83,18 +81,14 @@ out of that training set; the model gives them probability 0. SMOTE-NC uses
 Tuned engine parameters: for \code{"svm"} (\code{e1071::svm()}, libsvm, radial
 kernel \verb{exp(-rbf_sigma * |u - v|^2)} on standardized predictors, Platt
 probabilities) \code{cost} in \verb{2^[-2, 8]} and \code{rbf_sigma} (libsvm \code{gamma}) in
-\verb{10^[-3, 0]}; for
-\code{"rf"} (\code{ranger}, 500 trees) \code{mtry}, as the proportion of predictors in
-\verb{[0.1, 1]}, and \code{min_n} in \verb{[2, 40]}. \code{grid_size} parameter combinations are
-chosen by a space-filling design and crossed with all values of
-\code{n_predictors}.
+\verb{10^[-3, 0]}; for \code{"rf"} (\code{ranger}, 500 trees) \code{mtry}, as the proportion of
+predictors in \verb{[0.1, 1]}, and \code{min_n} in \verb{[2, 40]}. \code{grid_size} parameter
+combinations are chosen by a space-filling design and crossed with every
+number of predictors from \code{n_predictors_min} to \code{n_predictors_max}.
 }
 \examples{
-svm_options <- model_options(
-  predictors = c("temp", "salinity", "depth"),
-  engine = "svm",
-  n_predictors = 1:3
-)
+svm_options <- model_options()
 rf_options <- update(svm_options, engine = "rf")
+small_models <- model_options(n_predictors_max = 3)
 
 }

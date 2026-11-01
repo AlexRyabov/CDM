@@ -19,9 +19,12 @@ Imports:
     dials,
     e1071,
     future.apply,
+    ggplot2,
     grDevices,
     important,
+    mclust,
     parsnip,
+    patchwork,
     ranger,
     recipes,
     rsample,
@@ -30,17 +33,14 @@ Imports:
     themis,
     tibble,
     utils,
+    viridisLite,
     withr,
     yardstick
 Suggests:
     future,
-    ggplot2,
-    mclust,
     parallelly,
-    patchwork,
     pkgload,
-    testthat (>= 3.0.0),
-    viridisLite
+    testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 Config/roxygen2/version: 8.1.0

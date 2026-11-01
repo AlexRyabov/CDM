@@ -4,24 +4,21 @@
 \alias{predict.cdm_model}
 \title{Predict community-type probabilities}
 \usage{
-\method{predict}{cdm_model}(object, newdata, sample_id = NULL, ...)
+\method{predict}{cdm_model}(object, newdata, ...)
 }
 \arguments{
 \item{object}{A \code{cdm_model} object created by \code{\link[=fit_model]{fit_model()}}.}
 
-\item{newdata}{A \code{cdm_data} object, or a data frame or tibble with the
-selected predictors (see \code{object$predictors}).}
-
-\item{sample_id}{For a data frame, the name of its column with sample IDs.
-\code{NULL} uses the row names, which must be sample IDs; a tibble has no row
-names and needs \code{sample_id}.}
+\item{newdata}{A data frame or tibble with the selected predictors (see
+\code{object$predictors}), for example \code{cdm_data$env}.}
 
 \item{...}{Not used.}
 }
 \value{
-A data frame with \code{sample_id}, \code{.pred_class}, and one
-\verb{.pred_<class>} probability column per class. Classes the model could not
-learn have probability 0.
+A data frame with one row per row of \code{newdata}, in the same order:
+\code{sample_id} (from the column \code{sample_id} of \code{newdata}, or the row
+numbers), \code{.pred_class}, and one \verb{.pred_<class>} probability column per
+class. Classes the model could not learn have probability 0.
 }
 \description{
 Predicts the community type and the probability of every community type
@@ -29,6 +26,6 @@ for new samples. The type is the model's own decision: one-vs-one voting of
 the SVMs (\code{e1071::svm()}) or the majority over the trees (ranger). The
 probabilities are libsvm's Platt probabilities combined over the class
 pairs, or the tree frequencies of the random forest; see
-\code{\link[=evaluate_model]{evaluate_model()}}. The most probable type can differ from the predicted
-type. Rows are identified by sample ID.
+\code{\link[=cross_validate_model]{cross_validate_model()}}. The most probable type can differ from the predicted
+type.
 }

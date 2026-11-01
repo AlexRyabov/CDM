@@ -31,10 +31,11 @@ CDMr/
 
 ## Steps
 
-1. Install the required packages once. From `analysis/scripts/`:
+1. Install the required packages once. From the project folder (the folder
+   with `CDM/` and `analysis/`):
 
    ```text
-   Rscript install_libraries.R
+   Rscript analysis/scripts/install_libraries.R
    ```
 
 2. Select the project and its settings in `analysis/scripts/config.R`.
@@ -48,24 +49,29 @@ CDMr/
 
 3. Put the input files in `analysis/data/<project_name>/`.
 
-4. Run the analysis scripts in order with `analysis/scripts/` as the working
-   directory. Each script loads the results of the previous steps, so a
-   completed step does not have to be repeated:
+4. Run the analysis scripts in order. Each script loads the results of the
+   previous steps, so a completed step does not have to be repeated. The
+   scripts find `config.R` and all files from the project folder with
+   `here::here()`, so the working directory can be the project folder or any
+   folder inside it. In RStudio or Positron, open the project folder and run
+   a script with its Source button, or:
 
    ```r
-   source("005_import_data.R")              # once, or when the input files change
-   source("010_embed.R")                    # after importing data
-   source("020_cluster.R")                  # after the embedding
-   source("040_community_composition.R")    # after clustering
-   source("050_fit_model.R")                # after clustering; takes long
-   source("060_plot_PD.R")                  # after the final model
+   source("analysis/scripts/005_import_data.R")            # once, or when the input files change
+   source("analysis/scripts/010_embed.R")                  # after importing data
+   source("analysis/scripts/020_cluster.R")                # after the embedding
+   source("analysis/scripts/040_community_composition.R")  # after clustering
+   source("analysis/scripts/050_fit_model.R")              # after clustering; takes long
+   source("analysis/scripts/060_plot_PD.R")                # after the final model
    ```
 
-   or from a terminal:
+   or from a terminal in the project folder:
 
    ```text
-   Rscript 005_import_data.R
+   Rscript analysis/scripts/005_import_data.R
    ```
+
+   The empty file `.here` marks the project folder for `here`.
 
 Results are saved in `analysis/results/<project_name>/`: `cdm_data.rds`
 (community data, including `env$community_type` after clustering),
@@ -74,13 +80,53 @@ Results are saved in `analysis/results/<project_name>/`: `cdm_data.rds`
 `evaluation_rf.rds`, and the final model `model.rds`, and from
 `060_plot_PD.R` the partial dependence `partial_dependence.rds`.
 
+## Community data
+
+`005_import_data.R` builds the community data object `cdm_data`. Its tables
+are plain data frames with samples (or taxa) in rows:
+
+- `abundance` and `relative_abundance`: one row per sample, the column
+  `sample_id`, then one column per taxon named by its taxon ID;
+- `env`: one row per sample in the same order, `sample_id`, then the
+  environmental variables (and `community_type` after `020_cluster.R`);
+- `taxa`: one row per taxon, `taxon_id`, then the taxonomy.
+
+The import has three steps:
+
+1. The species table has taxa in rows: the taxonomy columns up to
+   `columns$last_taxonomy`, then one abundance column per sample.
+   `transpose_abundance(x, taxon_id)` turns the abundance columns into a table
+   with samples in rows; the sample IDs are the column names, and the taxon
+   columns are named by `taxon_id` (for example the `ASV` column), or
+   numbered `taxon_0001`, ... if `taxon_id = NULL`. Data that already have
+   samples in rows do not need this step.
+2. `prepare_data(abundance, env, taxa, sample_id = "Sample", taxon_id = "ASV")`
+   checks the tables and matches them. `sample_id` and `taxon_id` name the ID
+   columns of `env` and `taxa` (set in `columns` in `config.R`); the tables
+   are matched by these IDs. With `NULL`, the tables are matched by order and
+   must have the same size.
+3. `subset(cdm_data, condition)` keeps the samples selected by the project
+   sample filter, for example `Depth < 105`.
+
+The later scripts pass the parts of `cdm_data` to the package functions, for
+example `map_comm(cdm_data$relative_abundance, options)`,
+`update_community_type(cdm_data$env, clustered_map)`,
+`plot_map(map, cdm_data$env, color = "Depth")`, and
+`community_deviation_indexes(cdm_data$relative_abundance, cdm_data$taxa,
+group_by = "Phylum")`. Tables are matched by the column `sample_id`; tables
+without it are matched by order. Functions that take data frames also accept
+tibbles.
+
 ## Community-type models
 
 `050_fit_model.R` predicts the probabilities of the community types from
 environmental variables. Its settings — target, predictors, numbers of folds,
-and model options — are defined in the list `model_settings` at the top of the
-script. The predictors must not contain missing values; impute them before
-this step.
+and the few model options that differ from the defaults — are defined in the
+list `model_settings` at the top of the script. The functions work like
+scikit-learn: `x` is the table of predictors (`cdm_data$env[predictors]`),
+`y` the vector of community types, and `cv` the cross-validation folds made
+from the same rows. The predictors must not contain missing values; impute
+them before this step.
 
 1. `make_cv_folds()` splits the samples into cross-validation folds and
    returns a standard `rsample` object, like `rsample::group_vfold_cv()`:
@@ -97,13 +143,16 @@ this step.
    the folds are random (`rsample::vfold_cv()`), and `v = "leave_block_out"`
    gives leave-one-out. `summary(cv)` shows the size, the groups, and the
    strata of every fold. Call `set.seed()` before `make_cv_folds()` for
-   reproducible folds. The samples are identified by the row names of
-   `cdm_data$env`; for other data, such as a tibble, give the column with the
-   sample IDs in `sample_id`.
+   reproducible folds. The folds keep the data they were made from, as all
+   rsample objects do; the inner folds of `cross_validate_model()` use their
+   group and strata columns, and the results name the samples by their
+   `sample_id`.
 2. `model_options()` defines a support vector machine (`e1071::svm()`,
    libsvm); a random forest (`ranger`) is obtained with
-   `update(svm_options, engine = "rf")`. Inside every training set the best
-   `n_predictors` predictors are selected, the classes are balanced with
+   `update(svm_options, engine = "rf")`. All settings have defaults. Inside
+   every training set the best predictors are selected (every number from
+   `n_predictors_min`, default 1, to `n_predictors_max`, default all columns
+   of `x`, is tried), the classes are balanced with
    SMOTE-NC, and the number of predictors and the engine parameters are
    tuned. The predicted community type is the model's own decision
    (one-vs-one voting for the SVM, majority over trees for the random
@@ -112,9 +161,10 @@ this step.
    pair coupling differs, so the values do not match exactly) or the
    forest's tree frequencies. With SMOTE-NC they refer to balanced classes,
    not to the observed frequencies of the types.
-3. `evaluate_model()` estimates the prediction quality with nested
-   cross-validation: the inner folds are made with the same group, strata,
-   and balance, and tuning and predictor selection use only the training part
+3. `cross_validate_model(x, y, cv, options)` estimates the prediction
+   quality with nested cross-validation. The inner folds are made with the
+   same group, strata, and balance, and tuning and predictor selection use
+   only the training part
    of each outer fold. Folds that hold out a sample more than
    once or split a group are rejected. The main metric is the macro recall
    (mean recall over community types). `summary()` lists the metrics, the
@@ -123,46 +173,50 @@ this step.
    training part; `plot()` shows the confusion matrix and the recall per
    class. `compare_models()` compares the SVM and the random forest on the
    same folds.
-4. `fit_model()` fits the final model with the engine `final_engine` on all
-   samples. `predict(model, newdata)` returns the predicted community type
-   and the probability of every community type for each sample ID. `newdata`
-   is a `cdm_data` object or a data frame or tibble; without sample IDs as row
-   names, give their column in `sample_id`.
-
-Functions that take data frames also accept tibbles.
+4. `fit_model(x, y, cv, options)` tunes the final model with the engine
+   `final_engine` on the folds and fits it on all samples. It tunes the
+   parameters again and does not use the results of step 3: the
+   cross-validation only estimates how well the final model will predict new
+   samples and helps to choose `final_engine`.
+   `predict(model, newdata)` returns, for every row of the data frame or
+   tibble `newdata` (for example `cdm_data$env`) and in the same order, the
+   predicted community type and the probability of every community type.
 
 The evaluation is the longest step: its duration grows with `v`, `inner_v`,
-the number of values in `n_predictors`, and `grid_size`. The tuning can run
-in parallel R processes: set `workers` in `config.R` to more than 1. The
-tuning consists of `inner_v * length(n_predictors)` independent tasks (for
-example 5 * 3 = 15), so the most efficient number of workers is the number of
-tasks or a divisor of it, at most the number of CPU cores. The results do not
+the number of predictors tried, and `grid_size`. The tuning can run in
+parallel R processes: `workers` in `config.R` sets their number, and 1 runs
+sequentially. The tuning
+consists of one independent task per inner fold and number of predictors
+tried (for example 5 inner folds * 4 numbers of predictors = 20 tasks), so the
+most efficient number of workers is the number of tasks or a divisor of it,
+at most the number of CPU cores. The results do not
 depend on the number of workers. If `050_fit_model.R` is interrupted, stop the
 worker processes with `stopCluster(cl)`.
 
 ## Partial dependence maps
 
 `060_plot_PD.R` shows how the probabilities of the community types depend on
-two predictors of the final model (now temperature and day of year), in
-separate maps for depth layers. Its settings (`pd_settings`) are at the top of
-the script.
+two predictors of the final model, in separate maps for depth layers. The
+predictors, the grid, and the depth layers are written directly in the
+script.
 
-1. `pd2D_find(model, data, pred1, pred2)` computes the partial dependence on a
-   grid of the two predictors: at every grid point both predictors are set in
-   all samples of `data` (here the samples of one depth layer), the
-   probabilities of all types are predicted, and they are averaged over the
-   samples. The other predictors keep their observed values.
-2. `pd2D_mostprobable(pd)` finds the most probable type at every grid point
-   and its probability.
-3. `pd2D_plot(most_probable, points = ...)` draws the map of the most probable
-   type, contour lines of its probability, the observed samples colored by
-   their type, and a grey mask outside the convex hull of the samples, where
-   the model has no data.
+1. `pd2D_find(model, data, grid)` computes the partial dependence on a grid
+   of two predictors, given as a named list such as
+   `list(temp_imputed = ..., Month_doy = ...)`. At every grid point both
+   predictors are set in all samples of `data` (here the samples of one
+   depth layer), the probabilities of all types are predicted, and they are
+   averaged over the samples. The other predictors keep their observed
+   values.
+2. `plot(pd, points = ...)` draws the map of the most probable type at every
+   grid point (found by `pd2D_mostprobable(pd)`), contour lines of its
+   probability, the observed samples colored by their type, and a grey mask
+   outside the convex hull of the samples, where the model has no data.
 
-The partial dependence is saved in `partial_dependence.rds` and reused if the
-model, the settings, and the samples are unchanged; set `recompute <- TRUE` to
-compute it again. The calculation runs in parallel with `workers` from
-`config.R`; it needs `n_grid^2` predictions for every sample of a layer.
+The partial dependence is saved in `partial_dependence.rds`. With
+`compute_pd <- FALSE` the script loads it and only draws the maps; compute it
+again after the model or the settings change. The calculation runs in
+parallel with `workers` from `config.R`; it needs `n_grid^2` predictions for
+every sample of a layer.
 With SMOTE-NC (`imbalance = "smotenc"` in `050_fit_model.R`) the
 probabilities refer to balanced types, not to their observed frequencies.
 

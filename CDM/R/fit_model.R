@@ -1,29 +1,34 @@
 #' Fit the final community-type model
 #'
 #' Tunes the number of predictors and the engine parameters on the folds of
-#' `cv` with all samples and trains the model on all samples. The final model
-#' is refitted with the selected predictors only, so [predict()] needs only
-#' those columns.
+#' `cv` and trains the model on all rows of `x` and `y`, as
+#' `GridSearchCV(estimator, cv = cv).fit(X, y)` in scikit-learn. The final
+#' model is refitted with the selected predictors only, so [predict()] needs
+#' only those columns.
 #'
 #' The tuning runs in parallel when a parallel `future::plan()` is set; see
-#' [evaluate_model()].
+#' [cross_validate_model()].
 #'
+#' The tuning starts again and does not use the results of
+#' [cross_validate_model()], which only estimates the prediction quality.
 #' The predictors selected here can differ from those selected in the outer
-#' folds of [evaluate_model()]; compare them with `summary()` of both objects.
+#' folds of [cross_validate_model()]; compare them with `summary()` of both
+#' objects.
 #'
-#' @inheritParams evaluate_model
+#' @inheritParams cross_validate_model
 #'
 #' @return An object of class `cdm_model`, a list with the prepared recipe,
 #'   the fitted engine (`fit`: an `svm` object from e1071 or a `parsnip`
 #'   model of ranger), the selected `parameters` and
-#'   `predictors`, the classes of the target
+#'   `predictors`, the classes of `y`
 #'   (`classes`) and those the model predicts (`model_classes`), the type and
 #'   factor levels of every selected predictor (`predictor_info`), the tuning
 #'   results, the options, and provenance.
 #'
 #' @export
-fit_model <- function(cdm_data, cv, options) {
-  inputs <- prepare_model_inputs(cdm_data, cv, options)
+fit_model <- function(x, y, cv, options) {
+  inputs <- prepare_model_inputs(x, y, cv, options)
+  options <- inputs$options
   data <- inputs$data
   message("Fitting final ", options$engine, " model on ", nrow(data), " samples")
 
@@ -37,8 +42,8 @@ fit_model <- function(cdm_data, cv, options) {
   })
 
   predictors <- fitted$model$predictors
-  predictor_info <- lapply(data[predictors], function(x) {
-    list(type = if (is.factor(x)) "factor" else "numeric", levels = if (is.factor(x)) levels(x) else NULL)
+  predictor_info <- lapply(data[predictors], function(column) {
+    list(type = if (is.factor(column)) "factor" else "numeric", levels = if (is.factor(column)) levels(column) else NULL)
   })
 
   issues <- c(
@@ -57,9 +62,8 @@ fit_model <- function(cdm_data, cv, options) {
     fit = fitted$model$fit,
     parameters = fitted$tuning$parameters,
     predictors = predictors,
-    candidate_predictors = options$predictors,
+    candidate_predictors = setdiff(names(data), ".class"),
     predictor_info = predictor_info,
-    target = options$target,
     classes = levels(data$.class),
     model_classes = fitted$model$classes,
     tuning = fitted$tuning$grid,
@@ -85,52 +89,28 @@ fit_model <- function(cdm_data, cv, options) {
 #' the SVMs (`e1071::svm()`) or the majority over the trees (ranger). The
 #' probabilities are libsvm's Platt probabilities combined over the class
 #' pairs, or the tree frequencies of the random forest; see
-#' [evaluate_model()]. The most probable type can differ from the predicted
-#' type. Rows are identified by sample ID.
+#' [cross_validate_model()]. The most probable type can differ from the predicted
+#' type.
 #'
 #' @param object A `cdm_model` object created by [fit_model()].
-#' @param newdata A `cdm_data` object, or a data frame or tibble with the
-#'   selected predictors (see `object$predictors`).
-#' @param sample_id For a data frame, the name of its column with sample IDs.
-#'   `NULL` uses the row names, which must be sample IDs; a tibble has no row
-#'   names and needs `sample_id`.
+#' @param newdata A data frame or tibble with the selected predictors (see
+#'   `object$predictors`), for example `cdm_data$env`.
 #' @param ... Not used.
 #'
-#' @return A data frame with `sample_id`, `.pred_class`, and one
-#'   `.pred_<class>` probability column per class. Classes the model could not
-#'   learn have probability 0.
+#' @return A data frame with one row per row of `newdata`, in the same order:
+#'   `sample_id` (from the column `sample_id` of `newdata`, or the row
+#'   numbers), `.pred_class`, and one `.pred_<class>` probability column per
+#'   class. Classes the model could not learn have probability 0.
 #'
 #' @export
-predict.cdm_model <- function(object, newdata, sample_id = NULL, ...) {
+predict.cdm_model <- function(object, newdata, ...) {
   stop_if_kernlab(object, "fit_model")
-  if (inherits(newdata, "cdm_data")) {
-    newdata <- align_cdm_data_samples(newdata)
-    sample_ids <- newdata$sample_names
-    newdata <- newdata$env
-  } else if (is.data.frame(newdata)) {
-    # A tibble has no row names; its sample IDs must be a column.
-    newdata <- as.data.frame(newdata)
-    if (is.null(sample_id)) {
-      if (.row_names_info(newdata) < 0L) {
-        stop(
-          "newdata has no sample IDs: give the column with the sample IDs in sample_id, ",
-          "or use sample IDs as row names.",
-          call. = FALSE
-        )
-      }
-      sample_ids <- rownames(newdata)
-    } else {
-      if (!is.character(sample_id) || length(sample_id) != 1L || !sample_id %in% names(newdata)) {
-        stop("sample_id must be the name of a column of newdata.", call. = FALSE)
-      }
-      sample_ids <- as.character(newdata[[sample_id]])
-    }
-    if (anyNA(sample_ids) || any(!nzchar(sample_ids)) || anyDuplicated(sample_ids)) {
-      stop("Sample IDs of newdata must be unique and non-empty.", call. = FALSE)
-    }
-  } else {
-    stop("newdata must be a cdm_data object or a data frame.", call. = FALSE)
+  if (!is.data.frame(newdata)) {
+    stop("newdata must be a data frame.", call. = FALSE)
   }
+  newdata <- as.data.frame(newdata, check.names = FALSE)
+  rownames(newdata) <- NULL
+  sample_ids <- table_sample_ids(newdata)
 
   predictors <- prepare_new_predictors(object, newdata)
   rownames(predictors) <- sample_ids
@@ -180,7 +160,7 @@ prepare_new_predictors <- function(model, newdata) {
 
 #' @export
 print.cdm_model <- function(x, ...) {
-  cat("<cdm_model> ", x$options$engine, " model of ", x$target, "\n", sep = "")
+  cat("<cdm_model> ", x$options$engine, " model of ", length(x$classes), " classes\n", sep = "")
   cat("Predictors (", length(x$predictors), "): ", paste(x$predictors, collapse = ", "), "\n", sep = "")
   cat("Parameters: ", paste0(names(x$parameters), " = ", signif(unlist(x$parameters), 3), collapse = ", "), "\n", sep = "")
   cat("Classes: ", paste(x$model_classes, collapse = ", "), "\n", sep = "")
@@ -203,7 +183,7 @@ summary.cdm_model <- function(object, evaluation = NULL, ...) {
   predictor_table <- data.frame(predictor = object$predictors, stringsAsFactors = FALSE)
   if (!is.null(evaluation)) {
     if (!inherits(evaluation, "cdm_model_evaluation")) {
-      stop("evaluation must be created by evaluate_model().", call. = FALSE)
+      stop("evaluation must be created by cross_validate_model().", call. = FALSE)
     }
     if (!identical(evaluation$provenance$cv_folds_hash, object$provenance$cv_folds_hash) ||
         !identical(evaluation$provenance$data_hash, object$provenance$data_hash)) {
@@ -222,7 +202,6 @@ summary.cdm_model <- function(object, evaluation = NULL, ...) {
 
   result <- list(
     engine = object$options$engine,
-    target = object$target,
     parameters = object$parameters,
     tuning_metric = c(metric = object$options$metric, mean = selected_grid$mean, std_err = selected_grid$std_err),
     predictors = predictor_table,
@@ -236,7 +215,7 @@ summary.cdm_model <- function(object, evaluation = NULL, ...) {
 
 #' @export
 print.summary.cdm_model <- function(x, ...) {
-  cat("Final ", x$engine, " model of ", x$target, "\n\n", sep = "")
+  cat("Final ", x$engine, " model\n\n", sep = "")
   cat("Selected parameters: ", paste0(names(x$parameters), " = ", signif(unlist(x$parameters), 3), collapse = ", "), "\n", sep = "")
   cat("Tuning ", x$tuning_metric[["metric"]], ": ", format(as.numeric(x$tuning_metric[["mean"]]), digits = 3),
       " (SE ", format(as.numeric(x$tuning_metric[["std_err"]]), digits = 2), ")\n", sep = "")

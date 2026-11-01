@@ -7,14 +7,14 @@
 plot_community_composition(composition)
 }
 \arguments{
-\item{composition}{An object returned by \code{community_deviation_indexes()}.}
+\item{composition}{An object returned by \code{\link[=community_deviation_indexes]{community_deviation_indexes()}}.}
 }
 \value{
-A \code{ggplot} object. The long-format plotting data are stored in
-\code{plot$data} with columns \code{group}, \code{sample}, and \code{value}.
+A \code{ggplot} object. The plotted data are in \code{plot$data} with the
+columns \code{group}, \code{sample}, and \code{value}.
 }
 \description{
-Draws one box plot for each row of a community deviation table. Row names
-identify the plotted groups and their plotting order; columns contain
-observations from samples.
+Draws one box plot per taxonomic group of a community deviation table,
+with one value per sample. The groups keep the order of
+\code{composition$reference}.
 }

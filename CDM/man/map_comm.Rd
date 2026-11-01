@@ -4,26 +4,27 @@
 \alias{map_comm}
 \title{Map communities to a low-dimensional space}
 \usage{
-map_comm(cdm_data, options = map_options())
+map_comm(x, options = map_options())
 }
 \arguments{
-\item{cdm_data}{An object created by \code{prepare_data()}.}
+\item{x}{A data frame, tibble, or matrix with samples in rows and one
+numeric column per taxon, usually \code{cdm_data$relative_abundance}. A
+column \code{sample_id} is not used in the calculation; it is copied to the
+result.}
 
-\item{options}{Mapping options created by \code{map_options()}.}
+\item{options}{Mapping options created by \code{\link[=map_options]{map_options()}}.}
 }
 \value{
 An object of class \code{cdm_map}, a list with:
 \describe{
-\item{map}{Mapping coordinates as a data frame with samples in rows and
-dimensions in columns. Row names are sample IDs.}
+\item{map}{A data frame with one row per sample in the order of \code{x}:
+\code{sample_id} (if \code{x} has it), then the coordinates \code{dm_1}, \code{dm_2}, ...}
 \item{eigen_values}{Eigenvalues returned by the mapping method.}
 \item{map_object}{Original result returned by the mapping method.}
 \item{options}{Mapping options used for the run.}
-\item{sample_names}{Character vector of sample IDs.}
 }
 }
 \description{
-Embeds the samples of a \code{cdm_data} object with the mapping method defined by
-\code{options} and returns a compact mapping result. Currently the supported
-method is \code{"diffmap"}.
+Embeds the samples in a low-dimensional space with the method defined by
+\code{options}. Currently the supported method is \code{"diffmap"} (diffusion map).
 }

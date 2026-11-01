@@ -1,4 +1,4 @@
-#' Evaluate a community-type model with nested cross-validation
+#' Cross-validate a community-type model (nested cross-validation)
 #'
 #' Estimates how well community types are predicted from environmental
 #' predictors. For every outer fold of `cv`, the training part is split again
@@ -25,9 +25,10 @@
 #' classes balanced by oversampling, not to their observed frequencies.
 #'
 #' The tuning runs with `future.apply::future_lapply()`, one task per pair of
-#' tuning fold and number of predictors (`inner_v * length(n_predictors)`
-#' tasks). Without a parallel plan it runs sequentially. To use several
-#' processes, set a plan before the call, for example
+#' tuning fold and number of predictors (`inner_v` times the number of values
+#' from `n_predictors_min` to `n_predictors_max`). Without a parallel plan it
+#' runs sequentially. To use several processes, set a plan before the call,
+#' for example
 #' `future::plan(future::multisession, workers = 15)`; the most efficient
 #' number of workers is the number of tasks or a divisor of it. Every task gets
 #' its own random number stream (`future.seed = TRUE`), so the results do not
@@ -36,12 +37,22 @@
 #' Composition problems of inner folds, classes left out of training sets, and
 #' failed fits are collected in `issues` and reported in one warning.
 #'
-#' @param cdm_data An object created by [prepare_data()] with the target
-#'   column, for example after [update_community_type()].
+#' @param x A data frame or tibble of predictors with one row per sample, for
+#'   example `cdm_data$env[predictors]`. All columns are used as predictors.
+#'   They must be numeric, factor, character, or logical, without missing
+#'   values.
+#' @param y A vector or factor with the class of every row of `x`, for example
+#'   `cdm_data$env$community_type`.
 #' @param cv Outer folds: an `rset` created by [make_cv_folds()] or another
-#'   `rsample` function from `cdm_data$env`, whose row names are the sample
-#'   IDs. Folds in which a sample is held out more than once per repeat, or
-#'   in which a group is split, are rejected.
+#'   `rsample` function from the same samples in the same order as `x` and
+#'   `y`, usually from `cdm_data$env`. Only the numbers of rows are compared.
+#'   Samples in the results are named by the `sample_id` column of the data of
+#'   `cv`, or by row numbers. The inner folds use the group, strata, and
+#'   balance settings stored in `cv` (by [make_cv_folds()],
+#'   `rsample::group_vfold_cv()`, or `rsample::vfold_cv(strata = )`); folds
+#'   without these settings get random inner folds. Folds in which a sample is
+#'   held out more than once per repeat, or in which a group is split, are
+#'   rejected.
 #' @param options Model options created by [model_options()].
 #'
 #' @return An object of class `cdm_model_evaluation`, a list with:
@@ -56,13 +67,15 @@
 #'     number of selected predictors and the inner metric.}
 #'   \item{selected_predictors}{Predictors selected in every outer fold.}
 #'   \item{tuning}{Inner tuning results of every outer fold.}
-#'   \item{classes, target, options, issues, provenance}{Class levels, target
-#'     column, options, collected problems, and provenance.}
+#'   \item{classes, options, issues, provenance}{Class levels, options (with
+#'     the numbers of predictors tried in `n_predictors`), collected problems,
+#'     and provenance.}
 #' }
 #'
 #' @export
-evaluate_model <- function(cdm_data, cv, options) {
-  inputs <- prepare_model_inputs(cdm_data, cv, options)
+cross_validate_model <- function(x, y, cv, options) {
+  inputs <- prepare_model_inputs(x, y, cv, options)
+  options <- inputs$options
   classes <- levels(inputs$data$.class)
   splits <- cv_splits(inputs$folds)
   outer_issues <- check_missing_classes(inputs$folds, inputs$data)
@@ -76,8 +89,9 @@ evaluate_model <- function(cdm_data, cv, options) {
     results[[i]] <- withr::with_seed(options$seed + i, {
       train <- inputs$data[split$analysis, , drop = FALSE]
       # Inner folds use the group and strata columns of the outer folds.
+      train_cv_data <- cv_data[match(split$analysis, cv_data$sample_id), , drop = FALSE]
       n_groups <- if (is.null(inputs$cv$group)) nrow(train) else
-        length(unique(cv_data[split$analysis, inputs$cv$group]))
+        length(unique(train_cv_data[[inputs$cv$group]]))
       if (options$inner_v > n_groups) {
         stop(
           "inner_v (", options$inner_v, ") is larger than the number of groups (", n_groups,
@@ -86,13 +100,13 @@ evaluate_model <- function(cdm_data, cv, options) {
         )
       }
       inner_cv <- make_cv_folds(
-        cv_data[split$analysis, , drop = FALSE],
+        train_cv_data,
         group = inputs$cv$group,
         v = options$inner_v,
         balance = balance,
         strata = inputs$cv$strata
       )
-      inner_folds <- rset_folds(inner_cv, split$analysis)$folds
+      inner_folds <- rset_folds(inner_cv)$folds
       inner_issues <- check_missing_classes(inner_folds, train)
 
       tuning <- tune_class_model(train, inner_folds, options)
@@ -199,7 +213,6 @@ evaluate_model <- function(cdm_data, cv, options) {
       }))
     })),
     classes = classes,
-    target = options$target,
     options = options,
     issues = issues,
     provenance = list(
@@ -217,9 +230,9 @@ evaluate_model <- function(cdm_data, cv, options) {
 
 #' @export
 print.cdm_model_evaluation <- function(x, ...) {
-  stop_if_kernlab(x, "evaluate_model")
+  stop_if_kernlab(x, "cross_validate_model")
   pooled <- tapply(x$metrics$value, x$metrics$metric, mean)
-  cat("<cdm_model_evaluation> ", x$options$engine, " model of ", x$target, ", ",
+  cat("<cdm_model_evaluation> ", x$options$engine, " model of ", length(x$classes), " classes, ",
       length(unique(x$parameters$split)), " outer folds\n", sep = "")
   cat("Pooled out-of-fold metrics: ",
       paste0(names(pooled), " = ", format(round(pooled, 3)), collapse = ", "), "\n", sep = "")
@@ -231,7 +244,7 @@ print.cdm_model_evaluation <- function(x, ...) {
 
 #' Summarize a model evaluation
 #'
-#' @param object A `cdm_model_evaluation` object created by [evaluate_model()].
+#' @param object A `cdm_model_evaluation` object created by [cross_validate_model()].
 #' @param ... Not used.
 #'
 #' @return An object of class `summary.cdm_model_evaluation`, a list with
@@ -241,7 +254,7 @@ print.cdm_model_evaluation <- function(x, ...) {
 #'
 #' @export
 summary.cdm_model_evaluation <- function(object, ...) {
-  stop_if_kernlab(object, "evaluate_model")
+  stop_if_kernlab(object, "cross_validate_model")
   pooled <- stats::aggregate(value ~ metric, data = object$metrics, FUN = mean)
   fold_mean <- stats::aggregate(value ~ metric, data = object$fold_metrics, FUN = mean)
   fold_sd <- stats::aggregate(value ~ metric, data = object$fold_metrics, FUN = stats::sd)
@@ -250,7 +263,6 @@ summary.cdm_model_evaluation <- function(object, ...) {
 
   result <- list(
     engine = object$options$engine,
-    target = object$target,
     pooled_metrics = pooled,
     fold_metrics = data.frame(metric = fold_mean$metric, mean = fold_mean$value,
                               sd = fold_sd$value[match(fold_mean$metric, fold_sd$metric)]),
@@ -271,7 +283,7 @@ summary.cdm_model_evaluation <- function(object, ...) {
 
 #' @export
 print.summary.cdm_model_evaluation <- function(x, ...) {
-  cat("Evaluation of the ", x$engine, " model of ", x$target, "\n\n", sep = "")
+  cat("Evaluation of the ", x$engine, " model\n\n", sep = "")
   cat("Pooled out-of-fold metrics (mean over repeats):\n")
   print(x$pooled_metrics, row.names = FALSE, digits = 3)
   cat("\nMetrics of single folds:\n")
@@ -296,7 +308,7 @@ print.summary.cdm_model_evaluation <- function(x, ...) {
 #' (true classes) and the recall of every class (pooled, with single folds as
 #' points).
 #'
-#' @param x A `cdm_model_evaluation` object created by [evaluate_model()].
+#' @param x A `cdm_model_evaluation` object created by [cross_validate_model()].
 #' @param type `"all"` for both panels, or one of `"confusion"` and
 #'   `"recall"`.
 #' @param ... Not used.
@@ -306,9 +318,6 @@ print.summary.cdm_model_evaluation <- function(x, ...) {
 #' @export
 plot.cdm_model_evaluation <- function(x, type = c("all", "confusion", "recall"), ...) {
   type <- match.arg(type)
-  if (!requireNamespace("ggplot2", quietly = TRUE)) {
-    stop("Package 'ggplot2' is required to plot model evaluations.", call. = FALSE)
-  }
   predictions <- x$predictions
   classes <- x$classes
 
@@ -342,11 +351,6 @@ plot.cdm_model_evaluation <- function(x, type = c("all", "confusion", "recall"),
     type,
     confusion = confusion_plot,
     recall = recall_plot,
-    all = {
-      if (!requireNamespace("patchwork", quietly = TRUE)) {
-        stop("Package 'patchwork' is required to combine evaluation plots.", call. = FALSE)
-      }
-      patchwork::wrap_plots(confusion_plot, recall_plot, nrow = 1)
-    }
+    all = patchwork::wrap_plots(confusion_plot, recall_plot, nrow = 1)
   )
 }

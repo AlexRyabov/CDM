@@ -4,7 +4,7 @@
 \alias{pd2D_find}
 \title{Two-dimensional partial dependence of community-type probabilities}
 \usage{
-pd2D_find(model, data, pred1, pred2)
+pd2D_find(model, data, grid)
 }
 \arguments{
 \item{model}{A \code{cdm_model} object created by \code{\link[=fit_model]{fit_model()}}.}
@@ -12,33 +12,33 @@ pd2D_find(model, data, pred1, pred2)
 \item{data}{A data frame or tibble with the samples to average over; it
 must contain all predictors of the model (\code{model$predictors}).}
 
-\item{pred1, pred2}{Named lists with one element each: the name is a numeric
-predictor of the model, the element the grid of its values, for example
-\code{list(temp_imputed = seq(-2, 8, length.out = 100))}. \code{\link[=pd2D_plot]{pd2D_plot()}} needs
-increasing, equally spaced grids such as these.}
+\item{grid}{A named list of two numeric vectors: the grid values of two
+numeric predictors of the model, for example
+\code{list(temp = seq(-2, 8, length.out = 100), day = seq(1, 365, length.out = 100))}.
+The first predictor is the x axis of the plot, the second the y axis.
+\code{\link[=plot]{plot()}} needs increasing, equally spaced grids such as these.}
 }
 \value{
 An object of class \code{cdm_pd2d}, a list with the predictor names
 \code{pred1} and \code{pred2}, the grids \code{x} (values of \code{pred1}) and \code{y} (values of
 \code{pred2}), the \code{classes}, the array \code{probabilities} with dimensions
 \verb{length(x) x length(y) x length(classes)}, the number of averaged samples
-\code{n_data}, their IDs \code{data_ids} (row names of \code{data}; row numbers for a
-tibble or a data frame without row names), and the provenance
-of the model (\code{model_provenance}).
+\code{n_data}, their IDs \code{data_ids} (the column \code{sample_id} of \code{data}, or row
+numbers), and the provenance of the model (\code{model_provenance}).
 }
 \description{
 Computes the partial dependence of the probability of every community type
-on two predictors of a fitted model. For every point of the grid
-\verb{pred1 x pred2}, both predictors are set to the grid values in all rows of
-\code{data}, the class probabilities are predicted with the model, and they are
-averaged over the rows. The other predictors keep their observed values, so
-the result is averaged over the samples in \code{data} (Friedman's partial
-dependence). Use \code{data} to restrict the averaging, for example to the
-samples of one depth layer.
+on two predictors of a fitted model. For every point of the grid, both
+predictors are set to the grid values in all rows of \code{data}, the class
+probabilities are predicted with the model, and they are averaged over the
+rows. The other predictors keep their observed values, so the result is
+averaged over the samples in \code{data} (Friedman's partial dependence). Use
+\code{data} to restrict the averaging, for example to the samples of one depth
+layer. \code{\link[=plot]{plot()}} draws the most probable community type over the grid.
 }
 \details{
 The grid points are computed with \code{future.apply::future_lapply()}, one task
-per value of \code{pred1}; they run in parallel when a parallel
-\code{future::plan()} is set. The number of predictions is
-\code{length(pred1[[1]]) * length(pred2[[1]]) * nrow(data)}.
+per value of the first predictor; they run in parallel when a parallel
+\code{future::plan()} is set. The number of predictions is the number of grid
+points times \code{nrow(data)}.
 }

@@ -1,16 +1,19 @@
 # Project settings and packages used by all analysis scripts.
-# Install the packages once with: Rscript install_libraries.R
+# Install the packages once from the project folder with:
+# Rscript analysis/scripts/install_libraries.R
 
 library(here)
 library(devtools)
 library(readxl)
 library(mclust)
 library(viridisLite)
+library(rlang)
 library(withr)
 library(tibble)
 library(parallel)
 library(parallelly)
 library(future)
+library(future.apply)
 # Attached before rsample, parsnip, and ggplot2, so that e1071 does not mask
 # rsample::permutations(), parsnip::tune(), and ggplot2::element().
 library(e1071)
@@ -47,11 +50,16 @@ default_settings <- list(
     environment = "environment.xlsx"
   ),
 
-  # Column names in the input files.
+  # Column names in the input files. In the community data these IDs are
+  # always called sample_id and taxon_id.
   columns = list(
-    # Sample identifiers in the environmental table.
+    # Sample ID column of the environmental table, or NULL to match its rows
+    # with the samples of the species table by order.
     sample_id = "Sample",
-    # Last taxonomy column in the species table; abundance columns follow it.
+    # Taxon ID column of the species table, or NULL to number the taxa.
+    taxon_id = NULL,
+    # Last taxonomy column in the species table; one abundance column per
+    # sample follows it.
     last_taxonomy = "Species"
   ),
 
@@ -82,10 +90,12 @@ default_settings <- list(
   ),
 
   # Number of parallel R processes for model tuning in 050_fit_model.R.
-  # 1 runs sequentially. The tuning has inner_v * length(n_predictors) tasks
-  # (for example 5 * 3 = 15); the most efficient number of workers is the
-  # number of tasks or a divisor of it, at most the number of CPU cores.
-  workers = 15L
+  # 1 runs sequentially. The tuning has one task per inner fold and number of
+  # predictors tried (for example 5 inner folds * 4 predictors = 20 tasks); the
+  # most efficient number of workers is the number of tasks or a divisor of
+  # it, at most the number of CPU cores. availableCores() gives at most max
+  # workers, leaves omit cores free, and never gives less than 1.
+  workers = availableCores(omit = 0L, max = 20L)
 )
 
 # Analysis projects. Change only the defaults that differ, e.g. k_min = 61.
@@ -96,11 +106,11 @@ projects <- list(
       species = "ASVSamples.xlsx",
       environment = "Samples_imp.xlsx"
     ),
+    columns = list(taxon_id = "ASV"),
     clustering = list(
-    method = "mclust",
-    k = 8            # number of clusters or "best" by BIC
-  ),
-
+      method = "mclust",
+      k = 8            # number of clusters or "best" by BIC
+    ),
     sample_filter = quote(Depth < 105),
     embedding = list(k_min = 61),
     embedding_plot_colors = c("dm_3", "MonthNum", "Depth", "Lon")

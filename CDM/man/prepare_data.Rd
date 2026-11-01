@@ -2,49 +2,78 @@
 % Please edit documentation in R/prepare_data.R
 \name{prepare_data}
 \alias{prepare_data}
-\title{Prepare input data for CDM analyses}
+\title{Prepare community data}
 \usage{
 prepare_data(
-  species_names,
   abundance,
   env,
-  sample_names = NULL,
-  env_sample_col = "Sample"
+  taxa = NULL,
+  sample_id = "sample_id",
+  taxon_id = "taxon_id"
 )
 }
 \arguments{
-\item{species_names}{Data frame with species or taxonomic metadata. Rows must
-match rows of \code{abundance}.}
+\item{abundance}{A data frame, tibble, or matrix with samples in rows and
+one numeric column per taxon, named by the taxon ID. An optional column
+\code{sample_id} holds the sample IDs; \code{\link[=transpose_abundance]{transpose_abundance()}} creates it.}
 
-\item{abundance}{Numeric matrix or data frame with species/taxa in rows and
-samples in columns.}
+\item{env}{A data frame or tibble with one row per sample and the
+environmental variables.}
 
-\item{env}{Data frame with samples in rows and environmental parameters in
-columns. By default, it must contain a \code{Sample} column with explicit sample
-identifiers.}
+\item{taxa}{\code{NULL} or a data frame or tibble with one row per taxon and the
+taxonomy. With \code{NULL}, \code{taxa} contains only the taxon IDs.}
 
-\item{sample_names}{Optional character vector with sample names. If \code{NULL}
-and \code{abundance} has column names, those names are used. If provided, these
-names are assigned to abundance columns and used to align \code{env}.}
+\item{sample_id}{Name of the sample ID column of \code{env}, or \code{NULL} to match
+the rows of \code{env} and \code{abundance} by order.}
 
-\item{env_sample_col}{Character string naming the environmental-data column
-with sample identifiers.}
+\item{taxon_id}{Name of the taxon ID column of \code{taxa}, or \code{NULL} to match
+the rows of \code{taxa} and the taxon columns of \code{abundance} by order.}
 }
 \value{
-An object of class \code{cdm_data}, a list with:
+An object of class \code{cdm_data}, a list of data frames without row
+names:
 \describe{
-\item{species_names}{Species or taxonomic metadata.}
-\item{abundance}{Abundance data as a data frame.}
-\item{relative_abundance}{Column-normalized relative abundance.}
-\item{env}{Environmental data with sample names as row names.}
-\item{sample_names}{Character vector of sample names.}
+\item{abundance}{One row per sample: \code{sample_id}, then one column per
+taxon named by its \code{taxon_id}.}
+\item{relative_abundance}{The same table with the abundances of every
+sample divided by their sum.}
+\item{env}{One row per sample in the same order: \code{sample_id}, then the
+environmental variables.}
+\item{taxa}{One row per taxon in the order of the abundance columns:
+\code{taxon_id}, then the taxonomy.}
 }
 }
 \description{
-Combines species metadata, abundance data, environmental data, and relative
-abundance into a single \code{cdm_data} object.
+Checks and combines the abundance table, the environmental table, and the
+taxonomy into one \code{cdm_data} object. All tables have samples (or taxa) in
+rows. Tibbles are accepted.
 }
 \details{
-Data frames can also be tibbles; all parts of the result are stored as
-plain data frames.
+Samples and taxa are matched by ID when the ID columns are named, and by
+order when the corresponding argument is \code{NULL}:
+\itemize{
+\item \code{sample_id = "Sample"}: the column \code{Sample} of \code{env} is matched with
+\code{abundance$sample_id}. Both tables must contain the same sample IDs; the
+rows of \code{env} are put in the order of \code{abundance}.
+\item \code{sample_id = NULL}: \code{env} has no ID column. Its rows are matched with the
+rows of \code{abundance} by order, so both tables must have the same number of
+rows. The IDs come from \code{abundance$sample_id}, or the samples are
+numbered \code{sample_0001}, ... if \code{abundance} has no \code{sample_id} column
+either.
+\item \code{taxon_id = "ASV"}: the column \code{ASV} of \code{taxa} is matched with the taxon
+columns of \code{abundance} (all columns except \code{sample_id}).
+\item \code{taxon_id = NULL}: the rows of \code{taxa} are matched with the taxon columns
+of \code{abundance} by order, and take their names as IDs.
+}
+}
+\examples{
+abundance <- transpose_abundance(
+  data.frame(s1 = c(5, 0, 1), s2 = c(2, 3, 0)),
+  taxon_id = c("ASV1", "ASV2", "ASV3")
+)
+env <- data.frame(Sample = c("s2", "s1"), Depth = c(50, 10))
+taxa <- data.frame(ASV = c("ASV1", "ASV2", "ASV3"), Phylum = c("P1", "P1", "P2"))
+cdm_data <- prepare_data(abundance, env, taxa, sample_id = "Sample", taxon_id = "ASV")
+cdm_data$env
+
 }

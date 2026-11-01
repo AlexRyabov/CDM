@@ -1,25 +1,52 @@
-# Internal functions shared by evaluate_model() and fit_model(): model data,
-# recipes, engines, prediction, tuning, and metrics. The target column is
-# renamed to `.class` inside the model data.
+# Internal functions shared by cross_validate_model() and fit_model(): model data,
+# recipes, engines, prediction, tuning, and metrics. The classes are stored in
+# the column `.class` of the internal model data, whose row names are the
+# sample IDs.
 
-# Validates cdm_data, cv, and options. Returns the model data (target and
-# candidate predictors, rows named by sample ID), the checked fold table, and
-# the cross-validation settings (data, group, strata, balance) of cv.
-prepare_model_inputs <- function(cdm_data, cv, options) {
+# Validates x, y, cv, and options, as fit(X, y) with a cross-validation object
+# in scikit-learn. The rows of x and y are the rows of the data of cv; only
+# their numbers are compared. Returns the model data (.class and the
+# predictors, rows named by sample ID), the checked fold table, the
+# cross-validation settings (data, group, strata, balance) of cv, and the
+# options with the numbers of predictors to try (`n_predictors`).
+prepare_model_inputs <- function(x, y, cv, options) {
   if (!inherits(options, "cdm_model_options")) {
     stop("options must be created by model_options().", call. = FALSE)
   }
-  cdm_data <- align_cdm_data_samples(cdm_data)
-  cv_info <- rset_folds(cv, cdm_data$sample_names)
-
-  env <- cdm_data$env
-  missing_columns <- setdiff(c(options$target, options$predictors), names(env))
-  if (length(missing_columns) > 0L) {
-    stop("cdm_data$env is missing columns: ", paste(missing_columns, collapse = ", "), call. = FALSE)
+  if (!is.data.frame(x)) {
+    stop("x must be a data frame or tibble with one predictor per column.", call. = FALSE)
   }
-  target <- env[[options$target]]
+  x <- as.data.frame(x, check.names = FALSE)
+  if (ncol(x) == 0L) {
+    stop("x must have at least one predictor column.", call. = FALSE)
+  }
+  if (".class" %in% names(x) || anyDuplicated(names(x)) || any(!nzchar(names(x)))) {
+    stop("The columns of x must have unique, non-empty names other than \".class\".", call. = FALSE)
+  }
+  if (is.data.frame(y) || is.list(y) && !is.factor(y)) {
+    stop("y must be a vector or factor of classes, for example cdm_data$env$community_type.", call. = FALSE)
+  }
+  cv_info <- rset_folds(cv)
+  if (nrow(x) != nrow(cv_info$data) || length(y) != nrow(cv_info$data)) {
+    stop(
+      "x, y, and the data of cv must have the same rows; their numbers are ",
+      nrow(x), ", ", length(y), ", and ", nrow(cv_info$data), ". Make cv from the same samples.",
+      call. = FALSE
+    )
+  }
+
+  n_max <- if (is.null(options$n_predictors_max)) ncol(x) else options$n_predictors_max
+  if (n_max > ncol(x)) {
+    stop("n_predictors_max (", n_max, ") is larger than the number of columns of x (", ncol(x), ").", call. = FALSE)
+  }
+  if (options$n_predictors_min > n_max) {
+    stop("n_predictors_min (", options$n_predictors_min, ") is larger than the number of predictors in x (", ncol(x), ").", call. = FALSE)
+  }
+  options$n_predictors <- seq(options$n_predictors_min, n_max)
+
+  target <- y
   if (any(is.na(target) | as.character(target) == "")) {
-    stop("The target '", options$target, "' has missing values.", call. = FALSE)
+    stop("y has missing or empty classes.", call. = FALSE)
   }
   if (!is.factor(target)) {
     # Numeric class labels such as "1", ..., "10" are ordered numerically.
@@ -32,11 +59,11 @@ prepare_model_inputs <- function(cdm_data, cv, options) {
   }
   target <- droplevels(target)
 
-  predictors <- convert_predictors(env[options$predictors])
+  predictors <- convert_predictors(x)
   data <- data.frame(.class = target, predictors, check.names = FALSE)
-  rownames(data) <- cdm_data$sample_names
+  rownames(data) <- cv_info$data$sample_id
 
-  list(data = data, folds = cv_info$folds, cv = cv_info)
+  list(data = data, folds = cv_info$folds, cv = cv_info, options = options)
 }
 
 # Checks predictor types and missing values; character and logical

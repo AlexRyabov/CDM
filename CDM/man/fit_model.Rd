@@ -4,16 +4,27 @@
 \alias{fit_model}
 \title{Fit the final community-type model}
 \usage{
-fit_model(cdm_data, cv, options)
+fit_model(x, y, cv, options)
 }
 \arguments{
-\item{cdm_data}{An object created by \code{\link[=prepare_data]{prepare_data()}} with the target
-column, for example after \code{\link[=update_community_type]{update_community_type()}}.}
+\item{x}{A data frame or tibble of predictors with one row per sample, for
+example \code{cdm_data$env[predictors]}. All columns are used as predictors.
+They must be numeric, factor, character, or logical, without missing
+values.}
+
+\item{y}{A vector or factor with the class of every row of \code{x}, for example
+\code{cdm_data$env$community_type}.}
 
 \item{cv}{Outer folds: an \code{rset} created by \code{\link[=make_cv_folds]{make_cv_folds()}} or another
-\code{rsample} function from \code{cdm_data$env}, whose row names are the sample
-IDs. Folds in which a sample is held out more than once per repeat, or
-in which a group is split, are rejected.}
+\code{rsample} function from the same samples in the same order as \code{x} and
+\code{y}, usually from \code{cdm_data$env}. Only the numbers of rows are compared.
+Samples in the results are named by the \code{sample_id} column of the data of
+\code{cv}, or by row numbers. The inner folds use the group, strata, and
+balance settings stored in \code{cv} (by \code{\link[=make_cv_folds]{make_cv_folds()}},
+\code{rsample::group_vfold_cv()}, or \code{rsample::vfold_cv(strata = )}); folds
+without these settings get random inner folds. Folds in which a sample is
+held out more than once per repeat, or in which a group is split, are
+rejected.}
 
 \item{options}{Model options created by \code{\link[=model_options]{model_options()}}.}
 }
@@ -21,21 +32,25 @@ in which a group is split, are rejected.}
 An object of class \code{cdm_model}, a list with the prepared recipe,
 the fitted engine (\code{fit}: an \code{svm} object from e1071 or a \code{parsnip}
 model of ranger), the selected \code{parameters} and
-\code{predictors}, the classes of the target
+\code{predictors}, the classes of \code{y}
 (\code{classes}) and those the model predicts (\code{model_classes}), the type and
 factor levels of every selected predictor (\code{predictor_info}), the tuning
 results, the options, and provenance.
 }
 \description{
 Tunes the number of predictors and the engine parameters on the folds of
-\code{cv} with all samples and trains the model on all samples. The final model
-is refitted with the selected predictors only, so \code{\link[=predict]{predict()}} needs only
-those columns.
+\code{cv} and trains the model on all rows of \code{x} and \code{y}, as
+\verb{GridSearchCV(estimator, cv = cv).fit(X, y)} in scikit-learn. The final
+model is refitted with the selected predictors only, so \code{\link[=predict]{predict()}} needs
+only those columns.
 }
 \details{
 The tuning runs in parallel when a parallel \code{future::plan()} is set; see
-\code{\link[=evaluate_model]{evaluate_model()}}.
+\code{\link[=cross_validate_model]{cross_validate_model()}}.
 
+The tuning starts again and does not use the results of
+\code{\link[=cross_validate_model]{cross_validate_model()}}, which only estimates the prediction quality.
 The predictors selected here can differ from those selected in the outer
-folds of \code{\link[=evaluate_model]{evaluate_model()}}; compare them with \code{summary()} of both objects.
+folds of \code{\link[=cross_validate_model]{cross_validate_model()}}; compare them with \code{summary()} of both
+objects.
 }

@@ -1,4 +1,4 @@
-source("config.R")
+source(here::here("analysis", "scripts", "config.R"))
 
 # Load prepared community data and saved embedding.
 cdm_data <- readRDS(cdm_config$files$community_data)
@@ -14,7 +14,7 @@ cluster_result <- clustered_map$cluster_result
 saveRDS(cluster_result, cdm_config$files$clustering)
 
 # Store per-sample community types with environmental data and save them.
-cdm_data <- update_community_type(cdm_data, clustered_map)
+cdm_data$env <- update_community_type(cdm_data$env, clustered_map)
 saveRDS(cdm_data, cdm_config$files$community_data)
 
 # Plot community types with distinct colors.
@@ -22,7 +22,7 @@ community_colors <- colors_fresh(cdm_data$env$community_type, order = "my")
 
 community_plot <- plot_map(
   map_result,
-  cdm_data,
+  cdm_data$env,
   x = "dm_1",
   y = "dm_2",
   color = "community_type"
