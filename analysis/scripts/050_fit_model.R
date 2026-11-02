@@ -57,8 +57,10 @@ cv <- make_cv_folds(
 print(summary(cv))
 saveRDS(cv, cdm_config$files$cv_folds)
 
-# Model evaluation --------------------------------------------------------------
-# this block is optiona, it compares SVM vs random forest ------------------------
+# Model evaluation (optional) ---------------------------------------------------
+
+# Compares the SVM and the random forest to choose final_engine. fit_model()
+# does not use these results; only the summary of the final model shows them.
 
 svm_options <- model_options(
   engine = "svm",
@@ -81,7 +83,9 @@ print(plot(svm_evaluation))
 print(plot(rf_evaluation))
 
 # Final model -------------------------------------------------------------------
-# as model comparison for this data shows that SVM is better than RF we fit SVM as the final model------
+
+# The engine is model_settings$final_engine. For these data the comparison
+# above shows that the SVM predicts better than the random forest.
 
 final_options <- update(svm_options, engine = model_settings$final_engine)
 model <- fit_model(x, y, cv, final_options)

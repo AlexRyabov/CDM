@@ -1,15 +1,15 @@
-# CDM
+# CDMr
 
 Community Distribution Modelling in R.
 
 ## Project Structure
 
-- `R/` contains functions that are part of the CDMr package.
-- `tests/testthat/` (local only, not in git) contains package tests; run them with `devtools::test()`.
-- `dev/` (local only, not in git) contains developer scripts for the MATLAB comparison.
+- `R/` contains the functions of the CDMr package.
+- `man/` contains their help pages, made from the comments in `R/` with
+  `devtools::document()`.
 - `../analysis/scripts/` contains user-editable analysis scripts and project settings.
 - `../analysis/data/` contains user data files.
-- `../analysis/results/` contains analysis outputs.
+- `../analysis/results/` contains analysis outputs; the analysis scripts create it.
 
 Projects and their settings (input files, column names, sample filter, and
 analysis options) are defined in `../analysis/scripts/config.R` and combined by

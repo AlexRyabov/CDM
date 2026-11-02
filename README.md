@@ -38,9 +38,15 @@ CDMr/
    Rscript analysis/scripts/install_libraries.R
    ```
 
+   This installs the packages that CDMr and the scripts use, not CDMr
+   itself: `config.R` loads the CDMr functions from the folder `CDM/` with
+   `devtools::load_all()`, so changes in `CDM/R/` take effect at once.
+
 2. Select the project and its settings in `analysis/scripts/config.R`.
-   `default_settings` contains the base settings: input files, column names,
-   the sample filter, and the embedding, clustering, and composition options.
+   `default_settings` contains the base settings: the data and results
+   folders, input files, column names, the sample filter, the embedding,
+   clustering, and composition options, and the number of parallel R
+   processes (`workers`).
    Model settings are defined at the top of `050_fit_model.R`.
    `projects` lists the analysis projects; each project changes only the
    settings that differ from the defaults. The active project is selected with
@@ -73,12 +79,15 @@ CDMr/
 
    The empty file `.here` marks the project folder for `here`.
 
-Results are saved in `analysis/results/<project_name>/`: `cdm_data.rds`
-(community data, including `env$community_type` after clustering),
-`embedding.rds`, `clustering.rds`, and from `050_fit_model.R` the folds
-`cv_folds.rds`, the model evaluations `evaluation_svm.rds` and
-`evaluation_rf.rds`, and the final model `model.rds`, and from
-`060_plot_PD.R` the partial dependence `partial_dependence.rds`.
+Results are saved in `analysis/results/<project_name>/`:
+
+- `cdm_data.rds`: community data, including `env$community_type` after
+  clustering;
+- `embedding.rds` and `clustering.rds`;
+- from `050_fit_model.R`: the folds `cv_folds.rds`, the model evaluations
+  `evaluation_svm.rds` and `evaluation_rf.rds`, and the final model
+  `model.rds`;
+- from `060_plot_PD.R`: the partial dependence `partial_dependence.rds`.
 
 ## Community data
 
@@ -152,27 +161,30 @@ them before this step.
    `update(svm_options, engine = "rf")`. All settings have defaults. Inside
    every training set the best predictors are selected (every number from
    `n_predictors_min`, default 1, to `n_predictors_max`, default all columns
-   of `x`, is tried), the classes are balanced with
-   SMOTE-NC, and the number of predictors and the engine parameters are
-   tuned. The predicted community type is the model's own decision
-   (one-vs-one voting for the SVM, majority over trees for the random
-   forest). The probabilities are libsvm's Platt probabilities combined over
-   the class pairs (similar to `'FitPosterior'` in MATLAB, whose default
+   of `x`, is tried), the classes are balanced with SMOTE-NC (new samples of
+   the rare community types are made between their nearest neighbours; "NC"
+   means that it also handles categorical predictors), and the number of
+   predictors and the engine parameters are tuned. The predicted community
+   type is the model's own decision (one-vs-one voting for the SVM, majority
+   over trees for the random forest). The probabilities are libsvm's Platt
+   probabilities (a logistic curve fitted to the SVM decision values for
+   every pair of classes) combined over the class pairs (similar to
+   `'FitPosterior'` in MATLAB, whose default
    pair coupling differs, so the values do not match exactly) or the
    forest's tree frequencies. With SMOTE-NC they refer to balanced classes,
    not to the observed frequencies of the types.
 3. `cross_validate_model(x, y, cv, options)` estimates the prediction
    quality with nested cross-validation. The inner folds are made with the
    same group, strata, and balance, and tuning and predictor selection use
-   only the training part
-   of each outer fold. Folds that hold out a sample more than
-   once or split a group are rejected. The main metric is the macro recall
+   only the training part of each outer fold. Folds that hold out a sample
+   more than once or split a group are rejected. The main metric is the macro recall
    (mean recall over community types). `summary()` lists the metrics, the
    classes in every fold, the parameters and predictors selected in every
    outer fold, and the problems found, for example classes missing from a
    training part; `plot()` shows the confusion matrix and the recall per
    class. `compare_models()` compares the SVM and the random forest on the
-   same folds.
+   same folds. This step is optional: it helps to choose the engine, and
+   step 4 does not need its results.
 4. `fit_model(x, y, cv, options)` tunes the final model with the engine
    `final_engine` on the folds and fits it on all samples. It tunes the
    parameters again and does not use the results of step 3: the
@@ -185,13 +197,12 @@ them before this step.
 The evaluation is the longest step: its duration grows with `v`, `inner_v`,
 the number of predictors tried, and `grid_size`. The tuning can run in
 parallel R processes: `workers` in `config.R` sets their number, and 1 runs
-sequentially. The tuning
-consists of one independent task per inner fold and number of predictors
-tried (for example 5 inner folds * 4 numbers of predictors = 20 tasks), so the
-most efficient number of workers is the number of tasks or a divisor of it,
-at most the number of CPU cores. The results do not
-depend on the number of workers. If `050_fit_model.R` is interrupted, stop the
-worker processes with `stopCluster(cl)`.
+sequentially. The tuning consists of one independent task per inner fold and
+number of predictors tried (for example 5 inner folds * 4 numbers of
+predictors = 20 tasks), so the most efficient number of workers is the number
+of tasks or a divisor of it, at most the number of CPU cores. The results do
+not depend on the number of workers. If `050_fit_model.R` is interrupted,
+stop the worker processes with `stopCluster(cl)`.
 
 ## Partial dependence maps
 
@@ -219,8 +230,8 @@ with an error if the saved partial dependence was computed with another model
 set `compute_pd <- TRUE`. Changes of the depth layers are not checked. The
 calculation runs in parallel with `workers` from `config.R`; it needs
 `n_grid^2` predictions for every sample of a layer.
-With SMOTE-NC (`imbalance = "smotenc"` in `050_fit_model.R`) the
-probabilities refer to balanced types, not to their observed frequencies.
+With SMOTE-NC (`imbalance = "smotenc"`, the default of `model_options()`)
+the probabilities refer to balanced types, not to their observed frequencies.
 
 ## Adding a project
 
