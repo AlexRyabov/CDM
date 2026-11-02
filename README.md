@@ -213,10 +213,12 @@ script.
    outside the convex hull of the samples, where the model has no data.
 
 The partial dependence is saved in `partial_dependence.rds`. With
-`compute_pd <- FALSE` the script loads it and only draws the maps; compute it
-again after the model or the settings change. The calculation runs in
-parallel with `workers` from `config.R`; it needs `n_grid^2` predictions for
-every sample of a layer.
+`compute_pd <- FALSE` the script loads it and only draws the maps. It stops
+with an error if the saved partial dependence was computed with another model
+(for example after `050_fit_model.R` was run again) or on another grid; then
+set `compute_pd <- TRUE`. Changes of the depth layers are not checked. The
+calculation runs in parallel with `workers` from `config.R`; it needs
+`n_grid^2` predictions for every sample of a layer.
 With SMOTE-NC (`imbalance = "smotenc"` in `050_fit_model.R`) the
 probabilities refer to balanced types, not to their observed frequencies.
 

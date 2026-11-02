@@ -49,6 +49,15 @@ if (compute_pd) {
   }
 } else {
   pds <- readRDS(cdm_config$files$partial_dependence)
+  # The saved partial dependence is valid only for the current model and grid.
+  # All layers were computed together, so the first layer is enough to check.
+  pd <- pds[[1]]
+  if (!identical(pd$model_provenance, model$provenance)) {
+    stop("partial_dependence.rds was computed with another model: set compute_pd <- TRUE.")
+  }
+  if (!identical(setNames(list(pd$x, pd$y), c(pd$pred1, pd$pred2)), grid)) {
+    stop("partial_dependence.rds was computed on another grid: set compute_pd <- TRUE.")
+  }
 }
 
 # Maps of the most probable community type --------------------------------------
